@@ -1,0 +1,187 @@
+---
+title: "FTDR Assignment 1"
+author: "Jesse Nieuwkoop (1689959)"
+date: "28-11-2024-"
+output:
+  html_document:
+    toc: true
+    toc_float: true
+    df_print: paged
+---
+
+---
+
+# Preparation
+
+```{r setup, include = FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Libraries
+
+```{r}
+# Import the libraries
+library(ggplot2)
+library(tidyverse)
+```
+
+## Read data
+
+```{r}
+# Read data
+data_raw <- read.csv("Airbnb_Open_Data.csv")
+
+# View data structure
+dplyr::glimpse(data_raw)
+```
+
+# Preprocessing
+
+```{r}
+# Load raw data onto new object
+data <- data_raw
+```
+
+## Duplicates
+
+```{r}
+# Print total duplicates
+sum(duplicated(data))
+
+# Remove duplicate rows 
+data <- data %>% unique()
+```
+
+## Subset & Rename
+
+```{r}
+# Subset data
+data <- data %>%
+  dplyr::select(cancellation_policy,
+                room.type,
+                Construction.year,
+                service.fee,
+                minimum.nights,
+                number.of.reviews,
+                reviews.per.month,
+                review.rate.number,
+                availability.365,
+                price)
+
+# Rename column names to snake_case format
+data <- data %>%
+  dplyr::rename(
+    room_type = room.type,
+    construction_year = Construction.year,
+    service_fee = service.fee,
+    minimum_nights = minimum.nights,
+    number_of_reviews = number.of.reviews,
+    reviews_per_month = reviews.per.month,
+    review_rate_number = review.rate.number,
+    availability_365 = availability.365,
+    price_usd = price
+  )
+```
+
+## Missing values
+
+```{r}
+# Count missing data
+data %>%
+  dplyr::summarise(across(everything(), ~ sum(is.na(.)))) %>%
+  tidyr::pivot_longer(
+    cols = everything(),
+    names_to = "Variable",
+    values_to = "NA Count"
+  )
+```
+
+```{r}
+# Drop all rows that contain empty or missing values
+data <- data %>%
+  # Convert empty character variables to NA
+  mutate(across(where(is.character), ~ trimws(.))) %>%
+  mutate(across(where(is.character), ~ na_if(., ""))) %>%
+  
+  # Drop records with NA values
+  drop_na()
+```
+
+## Measurement level check and adjustment
+
+```{r}
+# Convert variables to factor types
+data <- data %>%
+  dplyr::mutate(
+    cancellation_policy = factor(cancellation_policy, 
+                                 levels = c("flexible", "moderate", "strict"),
+                                 ordered = TRUE),
+    room_type = factor(room_type,
+                       ordered = FALSE)
+  )
+
+# View new structure
+str(data$cancellation_policy)
+str(data$room_type)
+```
+
+```{r}
+# Parse price numeric values
+data <- data %>%
+  dplyr::mutate(
+    price_usd = parse_number(price_usd),
+    service_fee = parse_number(service_fee)
+  )
+```
+
+## Individual variable check (Inspect)
+
+Bedoeling om voor elke variabele een nuttige figuur weer te geven en summary descriptives te laten zien.
+
+Categorisch:
+
+- Counts + Percentages
+- Plot: Bar plot
+
+Continuous:
+
+- Mean, median, range, min, max, sd
+- Plot: Histogram
+- Als eindig nummer (finite), dan mag ook bar plot.
+
+Dingen die opvallen verwijderen.
+
+GEEN IQR! Alleen werkelijk onmogelijk waarden weg.
+
+### 1: cancellation_policy
+
+```{r}
+# Verify structure of factors
+str(data$cancellation_policy)
+
+# Verify levels of factors
+levels(data$cancellation_policy)
+
+# Verify if ordered
+is.ordered(data$cancellation_policy)
+```
+
+### 2: room_type
+
+### 3: review_rate_number
+
+### 4: construction_year
+
+### 5: service_fee
+
+### 6: minimum_nights
+
+### 7: number_of_reviews
+
+### 8: reviews_per_month
+
+### 9: availability_365
+
+### 10: price_usd
+
+# Linear Regression
