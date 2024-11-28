@@ -4,8 +4,9 @@ author: "Kladbestand van Jesse Nieuwkoop (1689959)"
 output:
   html_document:
     toc: true
-    toc_float: true
+    toc_float: expand
     df_print: paged
+    
 ---
 
 ---
@@ -60,6 +61,14 @@ dim(data_raw)
 # View first rows of dataset
 head(data_raw)
 ```
+
+## Remove duplicates
+
+```{r}
+
+```
+
+
 ```{r}
 # View dataset structure
 dplyr::glimpse(data_raw)
