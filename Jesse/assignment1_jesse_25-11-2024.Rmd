@@ -1,12 +1,15 @@
 ---
 title: "FTDR Assignment 1: Logistic Regression"
 author: "Kladbestand van Jesse Nieuwkoop (1689959)"
+date: "25-11-2024"
 output:
   html_document:
     toc: true
-    toc_float: expand
+    toc_depth: 3
+    toc_float:
+      collapsed: false
+      expand: 3
     df_print: paged
-    
 ---
 
 ---
