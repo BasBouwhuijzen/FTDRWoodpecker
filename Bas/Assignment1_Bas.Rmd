@@ -22,7 +22,9 @@ library(rmarkdown)
 library(plotly)
 library(devtools)
 library(GGally)
+library(dplyr)
 ```
+
 
 ```{r}
 # Load dataset
@@ -30,18 +32,45 @@ data <- read.csv("../Airbnb_Open_Data.csv")
 ```
 
 ```{r}
+# Rename column names to snake_case format
+data <- data %>%
+  dplyr::rename(
+    room_type = room.type,
+    construction_year = Construction.year,
+    service_fee = service.fee,
+    minimum_nights = minimum.nights,
+    number_of_reviews = number.of.reviews,
+    reviews_per_month = reviews.per.month,
+    review_rate_number = review.rate.number,
+    availability_365 = availability.365,
+    price_usd = price
+  )
+```
+
+```{r}
+# Parse price numeric values
+data <- data %>%
+  dplyr::mutate(
+    price_usd = parse_number(price_usd),
+    service_fee = parse_number(service_fee)
+  )
+```
+
+```{r}
 data_filtered <- data %>%
   dplyr::select(cancellation_policy,
-                room.type,
-                Construction.year,
-                service.fee,
-                minimum.nights,
-                number.of.reviews,
-                reviews.per.month,
-                review.rate.number,
-                availability.365,
-                price)
+                room_type,
+                construction_year,
+                service_fee,
+                minimum_nights,
+                number_of_reviews,
+                reviews_per_month,
+                review_rate_number,
+                availability_365,
+                price_usd)
 ```
+
+
 
 ```{r}
 data_cleaned1 <- data_filtered %>%
@@ -74,4 +103,35 @@ ggpairs(data_cleaned %>% select(where(is.numeric)),
         title = "Scatterplot Matrix - Cleaned Data")
 
 ```
+
+```{r}
+data_cleaned1 <- data_cleaned1[data_cleaned1$availability_365 >= 0 & data_cleaned1$availability_365 <= 365, ]
+data_cleaned1 <- data_cleaned1[data_cleaned1$price_usd >= 0 & data_cleaned1$price_usd <= 10000, ] # Pas de bovengrens aan indien nodig.
+
+```
+
+```{r}
+summary(data_cleaned1$availability_365)
+mean(data_cleaned1$availability_365)
+median(data_cleaned1$availability_365)
+range(data_cleaned1$availability_365)
+sd(data_cleaned1$availability_365)
+
+summary(data_cleaned1$price_usd)
+mean(data_cleaned1$price_usd)
+median(data_cleaned1$price_usd)
+range(data_cleaned1$price_usd)
+sd(data_cleaned1$price_usd)
+
+ggplot(data_cleaned1, aes(x = availability_365)) +
+  geom_histogram(binwidth = 10, fill = "lightblue", color = "black") +
+  labs(title = "Histogram of Availability (365 days)", x = "Days Available", y = "Frequency")
+
+ggplot(data_cleaned1, aes(x = price_usd)) +
+  geom_histogram(binwidth = 50, fill = "pink", color = "black") +
+  labs(title = "Histogram of Price (USD)", x = "Price (USD)", y = "Frequency")
+
+```
+
+
 
