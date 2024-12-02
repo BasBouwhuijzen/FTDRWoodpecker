@@ -4,6 +4,8 @@ Bas Bouwhuijzen: s.w.bouwhuijzen@students.uu.nl 2130616
 
 Judith van der Wolf: j.vanderwolf@students.uu.nl 4661672
 
+Jesse Nieuwkoop: j.j.m.nieuwkoop@students.uu.nl 1689959
+
 Data dictionary 
 https://docs.google.com/spreadsheets/d/1iWCNJcSutYqpULSQHlNyGInUvHg2BoUGoNRIGa6Szc4/edit?gid=1322284596#gid=1322284596
 
