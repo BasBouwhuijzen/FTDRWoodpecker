@@ -29,7 +29,7 @@ library(tidyverse)
 
 ```{r}
 # Read data
-data_raw <- read.csv("Airbnb_Open_Data.csv")
+data_raw <- read.csv("../Airbnb_Open_Data.csv")
 
 # View data structure
 dplyr::glimpse(data_raw)

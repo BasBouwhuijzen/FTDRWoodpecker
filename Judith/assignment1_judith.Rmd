@@ -21,10 +21,11 @@ data <- read.csv("../Airbnb_Open_Data.csv")
 ## Duplicates
 ```{r}
 # Print total duplicates
-sum(duplicated(data))
+sum(duplicated(data$host.id))
 
 # Remove duplicate rows 
-data <- data %>% unique()
+data <- data %>% 
+  dplyr::distinct(host.id, .keep_all = TRUE)
 ```
 
 ## Subset & Rename

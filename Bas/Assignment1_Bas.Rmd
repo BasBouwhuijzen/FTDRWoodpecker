@@ -5,10 +5,6 @@ date: "2024-11-23"
 output: html_document
 ---
 
-```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE)
-```
-
 ```{r cars}
 library(ggplot2)
 library(tidyverse)
@@ -24,6 +20,12 @@ library(devtools)
 library(GGally)
 library(dplyr)
 ```
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
 
 
 ```{r}
@@ -106,7 +108,7 @@ ggpairs(data_cleaned %>% select(where(is.numeric)),
 
 ```{r}
 data_cleaned1 <- data_cleaned1[data_cleaned1$availability_365 >= 0 & data_cleaned1$availability_365 <= 365, ]
-data_cleaned1 <- data_cleaned1[data_cleaned1$price_usd >= 0 & data_cleaned1$price_usd <= 10000, ] # Pas de bovengrens aan indien nodig.
+data_cleaned1 <- data_cleaned1[data_cleaned1$price_usd >= 0, ] 
 
 ```
 
