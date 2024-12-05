@@ -5,7 +5,10 @@ date: "28-11-2024-"
 output:
   html_document:
     toc: true
-    toc_float: true
+    toc_depth: 4
+    toc_float:
+      collapsed: false
+      expand: 3
     df_print: paged
 ---
 
@@ -21,33 +24,32 @@ knitr::opts_chunk$set(echo = TRUE)
 
 ```{r}
 # Import the libraries
-library(ggplot2)
-library(tidyverse)
+library(tidyverse)    # For data manipulation
+library(ggplot2)      # For plotting
+library(ggpubr)       # For ggplot grid arrange
+library(kableExtra)   # For fancy tables
 ```
 
 ## Read data
 
 ```{r}
 # Read data
-data_raw <- read.csv("Airbnb_Open_Data.csv")
+data <- read.csv("Airbnb_Open_Data.csv")
 
 # View data structure
-dplyr::glimpse(data_raw)
+dplyr::glimpse(data)
 ```
 
 # Preprocessing
-
-```{r}
-# Load raw data onto new object
-data <- data_raw
-```
 
 ## Duplicates
 
 ```{r}
 # Print total duplicates
 sum(duplicated(data$host.id))
+```
 
+```{r}
 # Remove duplicate rows 
 data <- data %>% 
   dplyr::distinct(host.id, .keep_all = TRUE)
@@ -108,7 +110,7 @@ data <- data %>%
   drop_na()
 ```
 
-## Measurement level check and adjustment
+## Measurement level check
 
 ```{r}
 # Convert variables to factor types
@@ -118,12 +120,16 @@ data <- data %>%
                                  levels = c("flexible", "moderate", "strict"),
                                  ordered = TRUE),
     room_type = factor(room_type,
-                       ordered = FALSE)
+                       ordered = FALSE),
+    review_rate_number = factor(review_rate_number,
+                              levels = c(1, 2, 3, 4, 5),
+                              ordered = TRUE)
   )
 
 # View new structure
 str(data$cancellation_policy)
 str(data$room_type)
+str(data$review_rate_number)
 ```
 
 ```{r}
@@ -135,9 +141,165 @@ data <- data %>%
   )
 ```
 
-## Individual variable check (Inspect)
+## Individual outlier removal
 
-### 1: cancellation_policy
+```{r}
+# Store data before outlier removal for later comparison
+data_pre_outlier_removal <- data
+```
+
+### Functions
+
+#### capitalize_str()
+
+```{r}
+# Function to format column name to spaced, capitalized string
+capitalize_str <- function(string) {
+  # Replace underscores with spaces and capitalize each word
+  formatted_name <- gsub("_", " ", string)
+  formatted_name <- tools::toTitleCase(formatted_name)
+  
+  # Return result
+  return(formatted_name)
+}
+```
+
+#### summary_table_cat()
+
+```{r}
+# Function to display comparison summary table
+summary_table_cat <- function(data1, data2 = NULL, variable, sort = "none") {
+  # Summarize data1
+  summary_data1 <- data1 %>%
+    group_by(across(all_of(variable))) %>%
+    summarise(
+      `Frequency (Before)` = n(),
+      `Percentage (Before)` = (n() / nrow(data1)) * 100
+    )
+  
+  if (!is.null(data2)) {
+    # Summarize data2 if provided
+    summary_data2 <- data2 %>%
+      group_by(across(all_of(variable))) %>%
+      summarise(
+        `Frequency (After)` = n(),
+        `Percentage (After)` = (n() / nrow(data2)) * 100
+      )
+    
+    # Merge summaries
+    result <- full_join(summary_data1, summary_data2, by = variable) %>%
+      mutate(
+        `Percentage (Before)` = sprintf("%.2f%%", `Percentage (Before)`),
+        `Percentage (After)` = sprintf("%.2f%%", `Percentage (After)`)
+      )
+    
+    # Apply sorting
+    if (sort == "asc") {
+      result <- result %>% arrange(`Frequency (Before)`)
+    } else if (sort == "desc") {
+      result <- result %>% arrange(desc(`Frequency (Before)`))
+    }
+  } else {
+    # For single dataset case
+    result <- summary_data1 %>%
+      mutate(
+        `Percentage (Before)` = sprintf("%.2f%%", `Percentage (Before)`)
+      ) %>%
+      rename(`Frequency` = `Frequency (Before)`,
+             `Percentage` = `Percentage (Before)`)
+    
+    # Apply sorting
+    if (sort == "asc") {
+      result <- result %>% arrange(Frequency)
+    } else if (sort == "desc") {
+      result <- result %>% arrange(desc(Frequency))
+    }
+  }
+  
+  # Rename the variable column
+  result <- result %>%
+    rename(!!capitalize_str(variable) := all_of(variable))
+  
+  # Display table
+  result <- result %>%
+    kbl() %>%
+    kable_classic() %>%
+    kable_styling(latex_options = c("striped"), full_width = F)
+  
+  # Return table
+  return(result)
+}
+
+```
+
+#### summary_table_nums()
+
+```{r}
+# Create function to create summary table for numerical variables
+summary_table_nums <- function(data, variables) {
+  # Compile summary table
+  summary <- data.frame(
+    Mean = sapply(variables, function(var) round(mean(data[[var]]), 3)),
+    Min = sapply(variables, function(var) min(data[[var]])),
+    Median = sapply(variables, function(var) median(data[[var]])),
+    Max = sapply(variables, function(var) max(data[[var]])),
+    SD = sapply(variables, function(var) round(sd(data[[var]]), 3))
+  )
+  
+  # Temporarily rename rownames using capitalize_str
+  rownames(summary) <- sapply(variables, capitalize_str)
+  
+  # Display summary table
+  summary <- summary %>%
+    kbl() %>%
+    kable_classic(latex_options = c("striped"), full_width = TRUE)
+  
+  # Return table
+  return(summary)
+}
+```
+
+#### plot_histogram()
+
+```{r}
+# Function to create a histogram
+plot_histogram <- function(data, variable, title = NULL, binwidth = NULL, bins = NULL) {
+  
+  # Compile plot
+  plot <- ggplot(data, aes(x = .data[[variable]])) +
+    geom_histogram(binwidth = binwidth, 
+                   bins = bins, 
+                   fill = "lightblue",
+                   color = "black") +
+    labs(
+      title = title,
+      x = capitalize_str(variable),
+      y = "Frequency",
+      fill = variable
+    ) +
+    theme_bw()
+  
+  # Return plot
+  return(plot)
+}
+```
+
+### General
+
+```{r}
+summary_table_nums(data, c("construction_year", 
+                               "service_fee", 
+                               "minimum_nights", 
+                               "number_of_reviews", 
+                               "reviews_per_month", 
+                               "availability_365", 
+                               "price_usd")
+                   )
+```
+
+### Categorical variables
+
+#### 1: cancellation_policy
 
 ```{r}
 # Verify structure of factors
@@ -150,22 +312,369 @@ levels(data$cancellation_policy)
 is.ordered(data$cancellation_policy)
 ```
 
-### 2: room_type
+```{r}
+# Show summary table
+(table_1_pre <- summary_table_cat(data, 
+                                  variable = "cancellation_policy")
+)
+```
 
-### 3: review_rate_number
+```{r}
+# Show bar plot
+(plot_1_pre <- ggplot(data) +
+  geom_bar(aes(x = cancellation_policy, fill = cancellation_policy)) +
+  scale_fill_manual(values = c("flexible" = "lightgreen", 
+                               "moderate" = "lightblue", 
+                               "strict" = "tomato")) +
+  labs(title = "Bar Plot of Cancellation Policy",
+       fill = "Type of Policy",
+       x = "Type of Policy",
+       y = "Frequency"
+      ) +
+  theme_bw()
+)
+```
 
-### 4: construction_year
+#### 2: room_type
 
-### 5: service_fee
+```{r}
+# Verify structure of factors
+str(data$room_type)
 
-### 6: minimum_nights
+# Verify levels of factors
+levels(data$room_type)
 
-### 7: number_of_reviews
+# Verify if ordered
+is.ordered(data$room_type)
+```
 
-### 8: reviews_per_month
+```{r}
+# Show summary table
+(table_2_pre <- summary_table_cat(data, 
+                                  variable = "room_type", 
+                                  sort = "desc")
+)
+```
 
-### 9: availability_365
+```{r}
+# Show bar plot
+# https://www.learnui.design/tools/data-color-picker.html#palette
+(plot_2_pre <- ggplot(data) +
+  geom_bar(aes(x = fct_infreq(room_type,         # Sort on freq
+                              ordered = FALSE),
+               fill = room_type)) +
+  scale_fill_manual(values = c("Entire home/apt" = "#58508d", 
+                               "Private room" = "#ff6361", 
+                               "Shared room" = "#ffa600",
+                               "Hotel room" = "#bc5090")) +
+  labs(title = "Bar Plot of Room Type",
+       fill = "Type of Room",
+       x = "Type of Room",
+       y = "Frequency"
+      ) +
+  theme_bw()
+)
+```
 
-### 10: price_usd
+#### 3: review_rate_number
+
+```{r}
+# Verify structure of factors
+str(data$review_rate_number_f)
+
+# Verify levels of factors
+levels(data$review_rate_number_f)
+
+# Verify if ordered
+is.ordered(data$review_rate_number_f)
+```
+
+```{r}
+# Show summary table
+(table_3_pre <- summary_table_cat(data, 
+                                  variable = "review_rate_number")
+)
+```
+
+```{r}
+# Show bar plot
+# https://www.learnui.design/tools/data-color-picker.html#divergent
+(plot_3_pre <- ggplot(data) +
+  geom_bar(aes(x = review_rate_number,
+               fill = review_rate_number)) +
+  scale_fill_manual(values = c("1" = "#de425b", 
+                               "2" = "#fa9e5d", 
+                               "3" = "#ffd582",
+                               "4" = "#8bbe7a",
+                               "5" = "#488f31")) +
+  labs(title = "Before",
+       fill = "Rate Number",
+       x = "Rate Number",
+       y = "Frequency"
+      ) +
+  theme_bw()
+)
+```
+
+### Numerical variables
+
+#### 4: construction_year
+
+```{r}
+# Plot histogram
+(plot_4_pre <- plot_histogram(data, 
+                              "construction_year", 
+                              "Before",
+                              binwidth = 1)
+)
+```
+
+#### 5: service_fee
+
+```{r}
+# Plot histogram
+(plot_5_pre <- plot_histogram(data, 
+                              "service_fee", 
+                              "Before",
+                              binwidth = 5)
+)
+```
+
+#### 6: minimum_nights
+
+[ ] Removed values below 1 and above 365
+
+```{r}
+# Plot histogram
+(plot_6_pre <- plot_histogram(data, 
+                              "minimum_nights", 
+                              "Before",
+                              binwidth = 3)
+ )
+```
+
+```{r}
+# Count values
+sum(data$minimum_nights < 1)
+sum(data$minimum_nights > 365)
+```
+
+```{r}
+# Remove all values below 1 and above 365 from dataset
+data <- data[data$minimum_nights >= 1 & data$minimum_nights <= 365, ]
+```
+
+#### 7: number_of_reviews
+
+```{r}
+# Plot histogram
+(plot_7_pre <- plot_histogram(data, 
+                              "number_of_reviews", 
+                              "Before",
+                              binwidth = 10)
+)
+```
+
+#### 8: reviews_per_month
+
+[ ] Removed reviews_per_month > 45 (one and a half month)
+
+```{r}
+# Plot histogram
+(plot_8_pre <- plot_histogram(data, 
+                              "reviews_per_month", 
+                              "Before",
+                              binwidth = 1)
+)
+```
+
+```{r}
+# View count of reviews_per_month values
+data %>%
+  count(reviews_per_month) %>%
+  arrange(desc(reviews_per_month))
+```
+
+```{r}
+# Remove values > 45 reviews_per_month
+data <- data[data$reviews_per_month <= 45, ]
+```
+
+#### 9: availability_365
+
+```{r}
+# Plot histogram
+(plot_9_pre <- plot_histogram(data, 
+                              "availability_365", 
+                              "Before",
+                              binwidth = 7)
+)
+```
+
+```{r}
+# Count values
+sum(data$availability_365 < 0)
+sum(data$availability_365 > 365)
+```
+
+```{r}
+# Remove values below 1 and above 365
+data <- data[data$availability_365 >= 0 & data$availability_365 <= 365, ]
+```
+
+#### 10: price_usd
+
+```{r}
+# Plot histogram
+(plot_10_pre <- plot_histogram(data, 
+                               "price_usd", 
+                               "Before",
+                               binwidth = 10)
+)
+```
+
+## Final variable inspection
+
+### Categorical variables
+
+#### 1: cancellation_policy
+
+```{r}
+# View summary comparison of cancellation_policy
+summary_table_cat(data1 = data_pre_outlier_removal, 
+                  data2 = data,
+                  variable = "cancellation_policy")
+```
+
+
+#### 2: room_type
+
+```{r}
+# View summary comparison of room_type
+summary_table_cat(data1 = data_pre_outlier_removal, 
+                  data2 = data,
+                  variable = "room_type")
+```
+
+
+#### 3: review_rate_number
+
+```{r}
+# View summary comparison of review_rate_number
+summary_table_cat(data1 = data_pre_outlier_removal, 
+                  data2 = data,
+                  variable = "review_rate_number")
+```
+
+
+### Numerical variables
+
+```{r}
+summary_table_nums(data, c("construction_year", 
+                           "service_fee", 
+                           "minimum_nights", 
+                           "number_of_reviews", 
+                           "reviews_per_month", 
+                           "availability_365", 
+                           "price_usd")
+                   )
+```
+
+#### 4: construction_year
+
+```{r}
+# Plot histogram after outlier removal
+plot_4_post <- plot_histogram(data, 
+                              "construction_year", 
+                              "After",
+                              binwidth = 1)
+
+# Compare plots of before and after outlier removal
+ggarrange(plot_4_pre, plot_4_post, ncol = 2, nrow = 1)
+```
+
+#### 5: service_fee
+
+```{r}
+# Plot histogram after outlier removal
+plot_5_post <- plot_histogram(data, 
+                              "service_fee", 
+                              "After",
+                              binwidth = 5)
+
+# Compare plots of before and after outlier removal
+ggarrange(plot_5_pre, plot_5_post, ncol = 2, nrow = 1)
+```
+
+#### 6: minimum_nights
+
+```{r}
+# Plot histogram after outlier removal
+plot_6_post <- plot_histogram(data, 
+                              "minimum_nights", 
+                              "After",
+                              binwidth = 3)
+
+# Compare plots of before and after outlier removal
+ggarrange(plot_6_pre, plot_6_post, ncol = 2, nrow = 1)
+```
+
+#### 7: number_of_reviews
+
+```{r}
+# Plot histogram after outlier removal
+plot_7_post <- plot_histogram(data, 
+                              "number_of_reviews", 
+                              "After",
+                              binwidth = 10)
+
+# Compare plots of before and after outlier removal
+ggarrange(plot_7_pre, plot_7_post, ncol = 2, nrow = 1)
+```
+
+#### 8: reviews_per_month
+
+```{r}
+# Plot histogram after outlier removal
+plot_8_post <- plot_histogram(data, 
+                              "reviews_per_month", 
+                              "After",
+                              binwidth = 1)
+
+# Compare plots of before and after outlier removal
+ggarrange(plot_8_pre, plot_8_post, ncol = 2, nrow = 1)
+```
+
+#### 9: availability_365
+
+```{r}
+# Plot histogram after outlier removal
+plot_9_post <- plot_histogram(data, 
+                              "availability_365", 
+                              "After",
+                              binwidth = 7)
+
+# Compare plots of before and after outlier removal
+ggarrange(plot_9_pre, plot_9_post, ncol = 2, nrow = 1)
+```
+
+#### 10: price_usd
+
+```{r}
+# Plot histogram after outlier removal
+plot_10_post <- plot_histogram(data, 
+                              "price_usd", 
+                              "After",
+                              binwidth = 10)
+
+# Compare plots of before and after outlier removal
+ggarrange(plot_10_pre, plot_10_post, ncol = 2, nrow = 1)
+```
 
 # Linear Regression
+
+## Model 1
+
+
+
+
