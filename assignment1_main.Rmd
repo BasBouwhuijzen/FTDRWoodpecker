@@ -46,10 +46,11 @@ data <- data_raw
 
 ```{r}
 # Print total duplicates
-sum(duplicated(data))
+sum(duplicated(data$host.id))
 
 # Remove duplicate rows 
-data <- data %>% unique()
+data <- data %>% 
+  dplyr::distinct(host.id, .keep_all = TRUE)
 ```
 
 ## Subset & Rename
@@ -135,23 +136,6 @@ data <- data %>%
 ```
 
 ## Individual variable check (Inspect)
-
-Bedoeling om voor elke variabele een nuttige figuur weer te geven en summary descriptives te laten zien.
-
-Categorisch:
-
-- Counts + Percentages
-- Plot: Bar plot
-
-Continuous:
-
-- Mean, median, range, min, max, sd
-- Plot: Histogram
-- Als eindig nummer (finite), dan mag ook bar plot.
-
-Dingen die opvallen verwijderen.
-
-GEEN IQR! Alleen werkelijk onmogelijk waarden weg.
 
 ### 1: cancellation_policy
 
