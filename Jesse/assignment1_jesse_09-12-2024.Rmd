@@ -34,7 +34,7 @@ library(kableExtra)   # For fancy tables
 
 ```{r}
 # Read data
-data <- read.csv("Airbnb_Open_Data.csv")
+data <- read.csv("../Airbnb_Open_Data.csv")
 
 # View data structure
 dplyr::glimpse(data)
@@ -80,7 +80,7 @@ data <- data %>%
     minimum_nights = minimum.nights,
     number_of_reviews = number.of.reviews,
     reviews_per_month = reviews.per.month,
-    review_rate_number = review.rate.number,
+    review_rate_number_c = review.rate.number,
     availability_365 = availability.365,
     price_usd = price
   )
@@ -116,9 +116,14 @@ data <- data %>%
 # Convert variables to factor types
 data <- data %>%
   dplyr::mutate(
-    cancellation_policy = as.factor(cancellation_policy),
-    room_type = as.factor(room_type),
-    review_rate_number = as.factor(review_rate_number)
+    cancellation_policy = factor(cancellation_policy, 
+                                 levels = c("flexible", "moderate", "strict"),
+                                 ordered = TRUE),
+    room_type = factor(room_type,
+                       ordered = FALSE),
+    review_rate_number_f = factor(review_rate_number_c,
+                              levels = c(1, 2, 3, 4, 5),
+                              ordered = TRUE)
   )
 
 # View new structure
@@ -373,6 +378,8 @@ is.ordered(data$room_type)
 
 #### 3: review_rate_number
 
+##### review_rate_number_f (factor)
+
 ```{r}
 # Verify structure of factors
 str(data$review_rate_number_f)
@@ -387,7 +394,7 @@ is.ordered(data$review_rate_number_f)
 ```{r}
 # Show summary table
 (table_3_pre <- summary_table_cat(data, 
-                                  variable = "review_rate_number")
+                                  variable = "review_rate_number_f")
 )
 ```
 
@@ -395,8 +402,8 @@ is.ordered(data$review_rate_number_f)
 # Show bar plot
 # https://www.learnui.design/tools/data-color-picker.html#divergent
 (plot_3_pre <- ggplot(data) +
-  geom_bar(aes(x = review_rate_number,
-               fill = review_rate_number)) +
+  geom_bar(aes(x = review_rate_number_f,
+               fill = review_rate_number_f)) +
   scale_fill_manual(values = c("1" = "#de425b", 
                                "2" = "#fa9e5d", 
                                "3" = "#ffd582",
@@ -425,13 +432,6 @@ is.ordered(data$review_rate_number_f)
 ```
 
 #### 5: service_fee
-
-[ ] (Almost) Exactly determined by price_usd, so not a viable predictor.
-
-```{r}
-# Strong suspicion this is dependent on price_usd
-cor(data$price_usd, data$service_fee)
-```
 
 ```{r}
 # Plot histogram
@@ -561,6 +561,8 @@ summary_table_cat(data1 = data_pre_outlier_removal,
 
 #### 3: review_rate_number
 
+##### review_rate_number_f (factor)
+
 ```{r}
 # View summary comparison of review_rate_number
 summary_table_cat(data1 = data_pre_outlier_removal, 
@@ -675,10 +677,6 @@ ggarrange(plot_10_pre, plot_10_post, ncol = 2, nrow = 1)
 
 # Linear Regression
 
-```{r}
-cor(data$price_usd, data$service_fee)
-```
-
 ## Functions
 
 ### compare_models()
@@ -736,78 +734,183 @@ compare_models <- function(data, response_var, compare_with_first = FALSE, ...) 
 }
 ```
 
+### test_multicol()
+
+```{r}
+test_multicol <- function(model) {
+  # Ensure the model is valid
+  if (!inherits(model, "lm")) {
+    stop("Input must be a linear model (lm object).")
+  }
+  
+  # Step 1: Show VIF results
+  print(car::vif(model))
+  
+  # Step 2: Extract data from the model
+  model_data <- model$model
+  
+  # Ensure only numeric columns are used for the correlation matrix
+  numeric_data <- model_data %>%
+    select_if(is.numeric)
+  
+  # Step 3: Show correlation matrix
+  cor_matrix <- cor(numeric_data)
+  
+  # Step 4: Visualize correlation matrix
+  print(ggcorrplot::ggcorrplot(cor_matrix, 
+                         method = "circle", 
+                         type = "lower", 
+                         lab = TRUE, 
+                         title = "Correlation Matrix of Numeric Predictors")
+  )
+}
+```
+
+
 ## Models
+
+-   AIC
+-   BIC
+-   MSE: Lower
+-   Deviance RSS (p < 0.05)
+
+Lower = Better
 
 ### Model 1
 
-[ ] Hypothese: Hoe hoger de review_rate_number, hoe lager de prijs.
+Correlation between price_usd and service_fee is almost 1.00, which clearly indicatatest hey are dependent on each other, meaning service_fee is not usable as a predictor of price_usd.
 
-Het geschatte gemiddelde voor prijs_usd voor review_rate number 1 is 631.821. 
-Het geschatte gemiddelde voor prijs_usd voor revuew_rate number 2 is (631,821- 2.028)
+-   **Lack of new information:** "If service_fee perfectly determines price_usd, the regression model essentially just reiterates the known relationship without offering any new insights. There's no variance in price_usd that isn't already explained by service_fee. Effect: The model becomes trivial and not useful for inference, prediction, or understanding additional relationships in the data."
+
+-   **Perfect Multicollinearity:** "Regression assumes that predictors provide independent contributions to the dependent variable. When a predictor is perfectly correlated with the dependent variable (or another predictor in the model), the regression can't disentangle their effects. Effect: This violates regression assumptions and can lead to inflated coefficients or even errors in more complex models."
 
 ```{r}
 model_1 <- lm(price_usd ~ 
-                review_rate_number,
+              service_fee,
               data = data)
 
 summary(model_1)
+```
+
+```{r}
+# Show correlation between the two variables
+cor(data$price_usd, data$service_fee)
 ```
 
 ### Model 2
 
 ```{r}
 model_2 <- lm(price_usd ~ 
-                review_rate_number +
-                number_of_reviews,
+              review_rate_number_c,
               data = data)
 
 summary(model_2)
-```
-
-#### Comparison with Model 1
-
-```{r}
-# Compare fit measures all models (except first model) with the first model
-compare_models(data = data,
-               response_var = "price_usd",
-               compare_with_first = TRUE,
-               model_1,
-               model_2)
-
-# Simplified:
-compare_models(data,
-               price_usd,
-               TRUE,
-               model_1,
-               model_2)
 ```
 
 ### Model 3
 
 ```{r}
 model_3 <- lm(price_usd ~ 
-                review_rate_number +
-                number_of_reviews +
+                review_rate_number_c +
                 availability_365,
-              data = data)
+                data = data)
 
 summary(model_3)
 ```
 
 ```{r}
-# Compare fit measures all models (except first model) with the first model
-compare_models(data = data,
-               response_var = "price_usd",
-               compare_with_first = TRUE,
-               model_1,
-               model_2,
-               model_3)
-
-# Simplified, but with FALSE:
 compare_models(data,
-               price_usd,
-               FALSE,
-               model_1,
+               "price_usd",
+               TRUE,
                model_2,
                model_3)
 ```
+
+### Model 4
+
+```{r}
+model_4 <- lm(price_usd ~ 
+                review_rate_number_c +
+                number_of_reviews,
+                data = data)
+
+summary(model_4)
+```
+
+```{r}
+model_5 <- lm(price_usd ~ 
+                review_rate_number_c +
+                room_type,
+                data = data)
+
+summary(model_4)
+```
+
+```{r}
+model_6 <- lm(price_usd ~ 
+                review_rate_number_c +
+                construction_year,
+                data = data)
+
+summary(model_5)
+```
+
+```{r}
+model_7 <- lm(price_usd ~ 
+                review_rate_number_c +
+                reviews_per_month,
+                data = data)
+
+summary(model_4)
+```
+
+```{r}
+compare_models(data,
+               "price_usd",
+               TRUE,
+               model_2,
+               model_3,
+               model_4,
+               model_5,
+               model_6,
+               model_7)
+```
+
+#### Model ALL
+
+```{r}
+model_all <- lm(price_usd ~ 
+                cancellation_policy +
+                room_type +
+                review_rate_number +
+                construction_year +
+                minimum_nights +
+                number_of_reviews +
+                reviews_per_month +
+                availability_365,
+                data = data)
+
+summary(model_all)
+```
+```{r}
+compare_models(data,
+               "price_usd",
+               TRUE,
+               model_2,
+               model_3,
+               model_4,
+               model_5,
+               model_6,
+               model_7,
+               model_all)
+```
+
+#### Other
+
+```{r}
+ls(summary(model_1))
+```
+
+
+
+
