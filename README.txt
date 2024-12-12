@@ -28,3 +28,4 @@ https://docs.google.com/spreadsheets/d/1b_dvmyhb_kAJhUmv81rAxl4KcXn0Pymz/edit?gi
 ## Variables
 
 [ ] Review Rate Number niet ordinaal, maar categorisch, hierdoor alleen rate 5 significant, maar als continuous variable gebruikt is, is hele variabele significant effect.
+[ ]

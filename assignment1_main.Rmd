@@ -738,76 +738,209 @@ compare_models <- function(data, response_var, compare_with_first = FALSE, ...) 
 
 ## Models
 
-### Model 1
-
-[ ] Hypothese: Hoe hoger de review_rate_number, hoe lager de prijs.
-
-Het geschatte gemiddelde voor prijs_usd voor review_rate number 1 is 631.821. 
-Het geschatte gemiddelde voor prijs_usd voor revuew_rate number 2 is (631,821- 2.028)
+```{r}
+glimpse(data)
+```
 
 ```{r}
-model_1 <- lm(price_usd ~ 
-                review_rate_number,
-              data = data)
+# Dupe data
+data2 <- data
 
-summary(model_1)
+# Remove review_rate_number_c from data
+data <- data %>%
+  select(-review_rate_number_c)
+
+# Remove review_rate_number from data2
+data2 <- data2 %>%
+  select(-review_rate_number)
+```
+
+```{r}
+# Remove service_fee variable from data for step regression
+data <- data %>%
+  select(-service_fee)
+```
+
+```{r}
+# Remove service_fee variable from data for step regression
+data2 <- data2 %>%
+  select(-service_fee)
+```
+
+```{r}
+glimpse(data2)
+```
+
+### Model 0
+
+We beginnen met een null model met alleen price_usd en intercept. Dit geeft het geschatte gemiddelde van price_usd; dat is 626.668 (intercept, estimate).
+
+```{r}
+# Define the null model (starting point)
+model_null <- lm(price_usd ~ 1, 
+                 data)
+
+# Show model summary
+summary(model_null)
+```
+
+### Model Forward Step
+
+```{r}
+# Perform forward step regression
+model_forward <- step(
+  null_model, 
+  direction = "forward", 
+  scope = formula(lm(price_usd ~ ., data)),
+  trace = TRUE
+)
 ```
 
 ### Model 2
 
+Op basis van de forward stepwise regression is de eerstvolgende predictor die toegevoegd wordt aa nhet model reviews_per_month.
+
+Wanneer reviews_per_month wordt toegevoegd als predictor, dan is de gemiddelde geschatte price_usd 625.0372 (intercept estimate), wanneer reviews_per_month 0 is.
+
+Op het moment dat reviews_per_month als predictor toegevoegd wordt, zien we dat als reviews_per_month met 1 unit stijgt, dat de geschatte gemiddelde price_usd met 1.1770 stijgt. Dit effect is niet significant.
+
 ```{r}
 model_2 <- lm(price_usd ~ 
-                review_rate_number +
-                number_of_reviews,
+                reviews_per_month,
               data = data)
 
 summary(model_2)
 ```
 
-#### Comparison with Model 1
+Wanneer reviews_per_month wordt toegevoegd:
+AIC daalt met 1, wat lager is dus beter. 
+BIC wordt 9 hoger, hoger is slechter. 
+MSE wordt 3.8 lager, lager is beter.
+De variantie van price_usd die wordt verklaard door het reviews_per_month is 3.422e-05. 
+
+de deviance p value is > 0.05, dit suggereert dat het toevoegen van reviews_per_month het model niet significant verbetert ten op zichte van de fucking baseline.
 
 ```{r}
-# Compare fit measures all models (except first model) with the first model
-compare_models(data = data,
-               response_var = "price_usd",
-               compare_with_first = TRUE,
-               model_1,
-               model_2)
-
-# Simplified:
 compare_models(data,
-               price_usd,
-               TRUE,
-               model_1,
-               model_2)
+              "price_usd",
+              FALSE,
+              model_null,
+              model_1)
 ```
 
 ### Model 3
 
 ```{r}
+# Center construction_year
+data <- data %>%
+  mutate(construction_year = construction_year - 2003)
+```
+
+```{r}
 model_3 <- lm(price_usd ~ 
-                review_rate_number +
-                number_of_reviews +
-                availability_365,
+                reviews_per_month +
+                construction_year,
               data = data)
 
 summary(model_3)
 ```
 
-```{r}
-# Compare fit measures all models (except first model) with the first model
-compare_models(data = data,
-               response_var = "price_usd",
-               compare_with_first = TRUE,
-               model_1,
-               model_2,
-               model_3)
+Het geschatte gemiddelde van price_usd wanneer reviews_per_month en construction_year constant zijn is 627.9384. 
 
-# Simplified, but with FALSE:
+Wanneer construction_year met 1 unit stijgt, daalt price_usd met 0.3066, gegeven dat reviews_per_month constant blijft. Negatief gecorreleerd.
+
+Wanneer reviews_per_month met 1 unit stijgt, stijgt price_usd met 1.1834, gegeven dat construction_year constant blijft. (after controlling for the other variables in the model) Positief gecorreleerd.
+
+De fit measures tonen aan dat dit model geen significante verbetering heeft ten opzichte van het model met alleen reviews_per_month. 
+
+AIC is hetzelfde
+BIC is hoger 9
+MSE is lager 3.1
+R^2 is hoger!
+
+```{r}
 compare_models(data,
-               price_usd,
-               FALSE,
-               model_1,
-               model_2,
-               model_3)
+              "price_usd",
+              FALSE,
+              model_2,
+              model_3)
 ```
+
+### Model 4
+
+We hebben handmatig cancellation_policy toegevoegd, om te laten dat we dit kunnen interpreteren, ook al weten we dat dit het model niet verbetert.
+
+Het geschatte gemiddelde van price_usd voor flexible cancellation_policy is 629.2754 wanneer reviews_per_month en construction_year constant zijn/blijven. 
+
+Het geschatte verschil in gemiddelde van price_usd voor moderate cancellation_policy vergeleken met flexible cancellation_policy is -2.1593, wanneer reviews_per_month en construction_year constant zijn/blijven. 
+
+Het geschatte verschil in gemiddelde van price_usd voor strict cancellation_policy vergeleken met flexible cancellation_policy is -1.8438, wanneer reviews_per_month en construction_year constant zijn/blijven. 
+
+Ze hebben dezelfde slope met een andere intercept, daarom voegen we een interactie effect toe. 
+
+```{r}
+model_4 <- lm(price_usd ~ 
+                reviews_per_month +
+                construction_year +
+                cancellation_policy,
+              data = data)
+
+summary(model_4)
+```
+
+### Model 5: Interactie
+
+Kill me
+
+we zien dat dit dit dit
+
+
+
+```{r}
+model_5 <- lm(price_usd ~ 
+                reviews_per_month + 
+                construction_year * cancellation_policy,
+              data = data)
+
+summary(model_5)
+```
+
+#### Plot 
+
+```{r}
+# aes() in geom_point(), otherwise loess line will be separated over colors
+ggplot(data) +
+  geom_point(aes(x = construction_year,
+                 y = price_usd,
+                 colour = cancellation_policy)) +
+  scale_color_manual(values = c("flexible" = "steelblue2", 
+                                "moderate" = "springgreen3", 
+                                "strict" = "tomato1")) +
+  theme_bw() +
+  stat_smooth(aes(x = construction_year,
+                  y = price_usd,
+                  colour = cancellation_policy), 
+               method = "lm", 
+               se = FALSE) +
+   labs(title = "Regression Line of Sepal Length and Petal Width")
+```
+
+# Assumptions
+
+## Model 3 (Final)
+
+[ ] Linearity
+[ ] Normality Check
+[ ] Homoscedasticity (Gelijke Variantie)
+[ ] 
+
+### Linearity & Homoscedasticity
+
+Assumptie voor linearity en homoscedasticity zijn NIET met. 
+
+```{r}
+plot(fitted(model_3), resid(model_3), col = 'pink', pch = 20,
+     xlab = "Fitted", ylab = "Residuals", main = "Data from Model_3")
+abline(h = 0, col = "gray", lwd = 2)
+```
+
