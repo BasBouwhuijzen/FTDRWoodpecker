@@ -1,0 +1,155 @@
+---
+title: "assignment1_poging2"
+author: "j. van der Wolf"
+date: "2024-12-09"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+#library
+library(tidyverse)
+library(dplyr)
+library(MLmetrics)
+
+getwd()
+#data
+data <- read.csv("../Airbnb_Open_Data.csv")
+```
+
+#Datacleaning 
+## Duplicates
+```{r}
+# Print total duplicates
+sum(duplicated(data$host.id))
+
+# Remove duplicate rows 
+data <- data %>% 
+  dplyr::distinct(host.id, .keep_all = TRUE)
+```
+
+## Subset & Rename
+```{r}
+# Subset data
+data <- data %>%
+  dplyr::select(cancellation_policy,
+                room.type,
+                Construction.year,
+                service.fee,
+                minimum.nights,
+                number.of.reviews,
+                reviews.per.month,
+                review.rate.number,
+                availability.365,
+                price)
+
+# Rename column names to snake_case format
+data <- data %>%
+  dplyr::rename(
+    room_type = room.type,
+    construction_year = Construction.year,
+    service_fee = service.fee,
+    minimum_nights = minimum.nights,
+    number_of_reviews = number.of.reviews,
+    reviews_per_month = reviews.per.month,
+    review_rate_number = review.rate.number,
+    availability_365 = availability.365,
+    price_usd = price
+  )
+```
+
+#transformatie van variabelen 
+```{r}
+data <- data %>% 
+  mutate(room_type = as.factor(room_type)) %>%
+  mutate(review_rate_number = as.factor(review_rate_number)) %>%
+  mutate(cancellation_policy = as.factor(cancellation_policy)) %>%
+  mutate(price_usd = parse_number(price_usd)) %>%
+  mutate(service_fee = parse_number(service_fee))
+```
+
+## Missing values
+```{r}
+summary(is.na(data))
+```
+
+#other weird answering options 
+```{r}
+#reviews_per_month
+data %>% 
+  count(reviews_per_month)
+
+#cancellation_policy =>has an empty category with 76 n
+data %>% 
+  count(cancellation_policy)
+
+#roomtype 
+data %>% 
+  count(room_type)
+
+#number of reviews
+data %>% 
+  count(number_of_reviews)
+
+#construction year
+data %>% 
+  count(construction_year)
+
+#review rate number
+data %>% 
+  count(review_rate_number)
+
+#availability 365 : loopt van -10 tot 426, uitschieter 3677 
+data %>% 
+  count(availability_365)
+
+#service_fee
+data %>% 
+  count(service_fee)
+#price_usd 
+data %>% 
+  count(price_usd)
+
+#minimumnights -1223, -365, -200, -125, -12, -10(4), -5, -3, -2, -1, paar hoger dan 365. 
+data %>% 
+  count(minimum_nights)
+
+```
+
+#Removing NA's en other weird shit 
+```{r}
+data <- data %>%
+  select(-service_fee) %>%
+  filter(between(availability_365, 0, 365)) %>%
+  filter(between(minimum_nights, 0, 365)) %>%
+  mutate(across(where(is.character), ~ trimws(.))) %>%
+  mutate(across(where(is.character), ~ na_if(., ""))) %>%
+  drop_na()
+```
+
+```{r}
+summary(is.na(data))
+```
+
+##regressie
+```{r}
+#hoe hoger de review rate number, hoe lager de prijs 
+model1 <- lm(price_usd ~ review_rate_number, data)
+summary(model1)
+
+
+model2<- lm(price_usd ~ room_type + review_rate_number, data)
+model2
+```
+#Backward 
+```{r}
+backward_model <- lm(price_usd ~ ., data)
+
+backward_model <- step(backward_model, direction = "backward")
+
+forward_model <- step(backward_model, direction = "forward", scope = formula(~ .))
+```
+
+
+
