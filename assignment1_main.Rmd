@@ -1,7 +1,8 @@
 ---
-title: "FTDR Assignment 1"
-author: "Judith van der Wolf (4661672) Jesse Nieuwkoop (1689959) Jay de Jager () Bas Bouwhuijzen (2130616)"
-date: "28-11-2024-"
+title: "Assignment 1"
+subtitle: "Fundamental Techniques in Data Science with R"
+author: "Judith van der Wolf (4661672) Jesse Nieuwkoop (1689959) Bas Bouwhuijzen (2130616) Jay de Jager (6990703)"
+date: "16-12-2024"
 output:
   html_document:
     toc: true
@@ -14,12 +15,31 @@ output:
 
 ---
 
-# Preparation
+# Introduction
+
+We are using a dataset found on [Kaggle](https://www.kaggle.com/datasets/arianazmoudeh/airbnbopendata) that contains information on Airbnb listings in New York. Airbnb is an American company that runs an online marketplace offering lodging, mainly vacation rental homestays, and tourism-related activities. We were interested in the nightly price of a stay at the listings in New York. This information is useful for determining the price of a new listing. The dataset has 26 variables that contain information about the listings. After assessing them, we chose to use 9 of the variables that could be relevant to the price. These variables are: cancellation_policy, room_type, review_rate_number, construction_year, service_fee, minimum_nights, number_of_reviews, reviews_per_month, and availability_365.
+
+1. cancellation_policy: A variable with the values: flexible, moderate, and strict.
+2. room_type: A variable with the values: Entire home/apt, Hotel room, Private room, Shared room. 
+3. review_rate_number: Rounded average of the rating a review gave to a listing. The values range from 1 to 5.
+4. construction_year: The year the property was built.
+5. service_fee: The service fee in USD for the listing.
+6. minimum_nights: Minimum number of nights needed for a booking of the listing.
+7. number_of_reviews: Total number of reviews received for the listing.
+8. reviews_per_month: The number of reviews the listing has over the lifetime of the listing per month.
+9. availability_365: The availability of the listing x days in the future as determined by the calendar.
+10. price: This variable is our target. We are trying to predict the price using the other variables. It describes how much a room costs per night.
+
+## Research Question
+
+“What variables are the best predictors for the price per night of Airbnb bookings in New York?”
 
 ```{r setup, include = FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
+# Preperation
+ 
 ## Libraries
 
 ```{r}
@@ -34,8 +54,6 @@ library(regclass)     # Assumption Checks
 
 ## Read data
 
-[Dataset URL](https://www.kaggle.com/datasets/arianazmoudeh/airbnbopendata)
-
 ```{r}
 # Read data
 data <- read.csv("Airbnb_Open_Data.csv")
@@ -48,7 +66,7 @@ dplyr::glimpse(data)
 
 ## Duplicates
 
-*The data was checked for duplicates in host.id, because each host.id number should be unique in the dataset. 542 Host.id duplicates were found and removed.*
+The data was checked for duplicates in host.id, because each host.id number should be unique in the dataset. 542 Host.id duplicates were found and removed.
 
 ```{r}
 # Print total duplicates
@@ -63,8 +81,7 @@ data <- data %>%
 
 ## Subset & Rename
 
-*The choice was made to only include the variables cancellation policy, roomtype, constructionyear, servicefee, minimumnights, numberofreviews, reviewspermonth, reviewratenumber, availability365 as possible predictors of price.*
-*Other variables in the dataset were either qualitative, such as complete written reviews or gpslocations of subareas in New York City, which we did not want to use for this analysis.* 
+The choice was made to only include the variables cancellation policy, room type, construction year, service fee, minimum nights, number of reviews, reviews per month, review rate number & availability 365 as possible predictors of price. Other variables in the dataset were either qualitative, such as complete written reviews or gpslocations of subareas in New York City, which we did **not** want to use for this analysis.
 
 ```{r}
 # Subset data
@@ -97,6 +114,8 @@ data <- data %>%
 
 ## Missing values
 
+The decision was made to handle missing data with listwise deletion, which means excluding rows containing missing values from the analysis. This choice was made, because a complete dataset was preferred and it was possible, because the dataset contained over 60.000 observations.
+
 ```{r}
 # Count missing data
 data %>%
@@ -107,8 +126,6 @@ data %>%
     values_to = "NA Count"
   )
 ```
-
-*The decision was made to handle missing data with listwise deletion, which means excluding rows containing missing values from the analysis. This choice was made, because a complete dataset was preferred and it was possible, because the dataset contained over 60.000 observations* 
  
 ```{r}
 # Drop all rows that contain empty or missing values
@@ -122,6 +139,8 @@ data <- data %>%
 ```
 
 ## Measurement level check
+
+Upon inspection of the data structure, it was recognized that the variables cancellation policy, room type & review rate number showed to be formatted as integers, when they should be interpreted as factors. Therefore these variables were refactored to the correct data type.
 
 ```{r}
 # Convert variables to factor types
@@ -137,6 +156,8 @@ str(data$cancellation_policy)
 str(data$room_type)
 str(data$review_rate_number)
 ```
+
+The variables price (USD) and service fee were of the string data type due to a dollar sign being present in the values. These variables were parsed to ensure the values were stored as integers instead of strings.
 
 ```{r}
 # Parse price numeric values
@@ -300,6 +321,8 @@ plot_histogram <- function(data, variable, title = NULL, binwidth = NULL, bins =
 
 ### General
 
+##### Table of summary descriptives for continuous variables
+
 ```{r}
 summary_table_nums(data, c("construction_year", 
                                "service_fee", 
@@ -321,10 +344,9 @@ str(data$cancellation_policy)
 
 # Verify levels of factors
 levels(data$cancellation_policy)
-
-# Verify if ordered
-is.ordered(data$cancellation_policy)
 ```
+
+##### Table of value frequency for cancellation policy
 
 ```{r}
 # Show summary table
@@ -357,10 +379,9 @@ str(data$room_type)
 
 # Verify levels of factors
 levels(data$room_type)
-
-# Verify if ordered
-is.ordered(data$room_type)
 ```
+
+##### Table of value frequency for room type
 
 ```{r}
 # Show summary table
@@ -392,18 +413,15 @@ is.ordered(data$room_type)
 
 #### 3: review_rate_number
 
-*WE MOETEN IETS MET ORDERED: BESPREKEN MAANDAG, STEL VOOR OM VERIFY IF ORDERED ERUIT TE HALEN*
-
 ```{r}
 # Verify structure of factors
 str(data$review_rate_number)
 
 # Verify levels of factors
 levels(data$review_rate_number)
-
-# Verify if ordered
-is.ordered(data$review_rate_number)
 ```
+
+##### Table of value frequency for review rate number
 
 ```{r}
 # Show summary table
@@ -436,7 +454,7 @@ is.ordered(data$review_rate_number)
 
 #### 4: construction_year
 
-*The results show that constructionyear does not have a meaningfull nullpoint/referencepoint. Therefor the decision was made to center this variable in order to make more meaningfull interpretations in the analysis*
+The results show that constructionyear does **not** have a meaningfull nullpoint/referencepoint. Therefor the decision was made to center this variable in order to make more meaningfull interpretations in the analysis
 
 ```{r}
 # Plot histogram
@@ -453,7 +471,7 @@ data <- data %>%
 
 #### 5: service_fee
 
-*After including service_fee as a possible predictor, the choice was made to check the correlation between servicefee and price, because it was suspected that servicefee could be a certain percentage of the total price. The correlation matrix showed indeed a correlation of .999. Therefore the decision was made to remove the variable service_fee from analysis to avoid issues related to multicollinearity.* 
+After including service_fee as a possible predictor, the choice was made to check the correlation between servicefee and price, because it was suspected that servicefee could be a certain percentage of the total price. The correlation matrix showed indeed a correlation of .999. Therefore the decision was made to remove the variable service_fee from analysis to avoid issues related to multicollinearity. 
 
 ```{r}
 # Strong suspicion this is dependent on price_usd
@@ -466,7 +484,7 @@ data <- data %>%
 
 #### 6: minimum_nights
 
-*The results show some unrealistic values for minimumnights. There are a few values below 1 and a few values above 365. The values bigger than 365 might indicate that people don't want their room to be rented, but do want to keep appearing in the airbnb listing. This is a strategy sometimes used by host we read on the internet. Therefor, we decided to remove values below 1 and above 365.*
+The results show some unrealistic values for minimum nights. There are a few values below 1 and a few values above 365. The values bigger than 365 might indicate that people don't want their room to be rented, but do want to keep appearing in the Airbnb listing, which is a common strategy used by hosts ([Reddit, 2024](https://www.reddit.com/r/AirBnB/comments/1bg4oic/extremely_long_minimum_stay_policies_upwards_of/)). Therefore, we decided to remove values below 1 and above 365.
 
 ```{r}
 # Plot histogram
@@ -501,7 +519,7 @@ data <- data[data$minimum_nights >= 1 & data$minimum_nights <= 365, ]
 
 #### 8: reviews_per_month
 
-*The results show that there are several unrealistic values in the reviews_per_month variable. The decision was made to exclude all values above 45. We reasoned that 30-31 reviews per month was realistic (for each night per month), but that we should account for a margin of 15*. 
+The results show that there are several unrealistic values in the reviews_per_month variable. The decision was made to exclude all values above 45. We reasoned that 30-31 reviews per month was realistic (for each night per month), but that we should account for a margin of 15.
 
 ```{r}
 # Plot histogram
@@ -526,7 +544,7 @@ data <- data[data$reviews_per_month <= 45, ]
 
 #### 9: availability_365
 
-*The results show some unrealistic values for availability_365. The describtion of this variable is 'how many days per year the airbnb location is available'. Therefor we decided to remove negative values and values bigger than 365*
+The results show some unrealistic values for availability_365. The description of this variable is 'how many days per year the Airbnb location is available'. Therefor we decided to remove negative values and values bigger than 365.
 
 ```{r}
 # Plot histogram
@@ -560,6 +578,8 @@ data <- data[data$availability_365 >= 0 & data$availability_365 <= 365, ]
 ```
 
 ## Final variable inspection
+
+We do a final inspection of the data after all the cleaning is done. Listwise deletion of values for one variable can influence the distribution in the rest of the variables. 
 
 ### Categorical variables
 
@@ -748,15 +768,13 @@ compare_models <- function(data, response_var, compare_with_first = FALSE, ...) 
 
 ## Models
 
-*Since the goal is to identify predictors in the dataset that can predict the price of an Airbnb, forward stepwise selection was used. We started with an empty model and predictors were systematically added one-at-a-time. We repeated the process until predictors could no further reduce the AIC, so a model with the best AIC statistic was found* 
+Since the goal is to identify predictors of Airbnb prices, forward stepwise selection was applied. Starting with an empty model, predictors were systematically added one at a time. The process continued until no further reduction in the AIC was possible, resulting in a model with the optimal AIC statistic. 
 
-```{r}
-glimpse(data)
-```
+While AIC is used to select the optimal model, BIC and MSE were also evaluated to assess model fit quality, with lower values in each measure indicating a better fit.
 
 ### Model 0
 
-*The nullmodel only contains the intercept, which is the estimated average of price_usd: 626.668*
+The null model only contains the intercept, which is the estimated average of price_usd: 626.668
 
 ```{r}
 # Define the null model (starting point)
@@ -769,7 +787,7 @@ summary(model_null)
 
 ### Forward Stepwise Selection approach
 
-*Based on the forward stepwise selection approach that was used the first predictor in the model that is suggested, is 'reviews per month'.' The second predictor in the model that is suggested is 'construction year'. After these predictors are added to the model the model will not further improve according to this approach. However, when inspecting the small reductions in AIC the added predictors cause, the improvement is questioned* 
+Based on the forward stepwise selection approach that was used, the first predictor in the model that is suggested is `reviews_per_month`. The second predictor in the model that is suggested is `construction year`. After these predictors are added to the model, the model will **not** further improve according to this approach. However, when inspecting the small reductions in AIC the added predictors cause, the improvement is questionable, since the values show very minimal changes.
 
 ```{r}
 # Perform forward step regression
@@ -783,7 +801,7 @@ model_forward <- step(
 
 ### Model 2: Price predicted by reviews per month. 
 
-*Based on the forward stepwise regression approach the first predictor that is added to the model is reviews_per_month. The estimated average price_usd is 625.0372 when reviews_per_month is held constant. When reviews_per_month increases with one unit, the estimated average price_usd increases with 1.1770. This positive relation however is not significant. The variance that is explained by reviews_per_month is extremely small (< .01), the AIC and MSE reduce slightly, but the BIC increases slightly, which suggests a worse model than the baseline. Also, The model deviance is 9041127940	 with p > .05, which indicates that this model does not significantly improve compared to the nullmodel.*
+Based on the forward stepwise regression approach the first predictor that is added to the model is `reviews_per_month`. The estimated average `price_usd` is 625.0372 when `reviews_per_month` is held constant. When `reviews_per_month` increases with one unit, the estimated average `price_usd` increases with 1.1770. This positive relation however is **not** significant. The variance that is explained by `reviews_per_month` is extremely small ($R^2 < .01$), the AIC and MSE reduce slightly, but the BIC increases slightly, which suggests a worse model than the baseline. Also, the model deviance is 9041127940 with $p > .05$, which indicates that this model does **not** significantly improve compared to the null model.
 
 ```{r}
 # Fit lm model 2
@@ -804,11 +822,11 @@ compare_models(data,
               model_2)
 ```
 
-### Model 3: Price predicted by reviews per month and constructionyear. 
+### Model 3: Price predicted by reviews per month and construction year. 
 
-*Based on the forward stepwise regression approach the second and last predictor that is added to the model is constructionyear. The estimated average price_usd is 627.9384 when reviews_per_month and construction_year are held constant. When constructionyear increases with one unit, the estimated average price_usd decreases with 0.3066, when controlled for reviews_per_month. This negative relation however is not significant. When reviews_per_month increases with one unit, the estimated average price_usd increases with 1.1834. This positive realtion however is also not significant. The variance that is explained by both reviews_per_month and construction_year is still extremely small (< .01).* 
+Based on the forward stepwise regression approach the second and last predictor that is added to the model is `construction_year`. The estimated average `price_usd` is 627.9384 when `reviews_per_month` and `construction_year` are held constant. When `construction_year` increases with one unit, the estimated average `price_usd` decreases with 0.3066, when controlling for `reviews_per_month`. This negative relation however is **not** significant ($p = 0.1265$). When `reviews_per_month` increases with one unit, the estimated average `price_usd` increases with 1.1834. This positive relation however is also **not** significant ($p = 0.0917$). The variance that is explained by both `reviews_per_month` and `construction_year` is still extremely small ($R^2 < .01$).
 
-*The variance that is explained by reviews_per_month is extremely small (< .01). When comparing model 2 and 3 the results show no significant improvement of model 3 compared to model 2. The model deviance is 9040871201 with p > .05. Although the MSE decreases slightly, the AIC stays the same and the BIC increases.*
+When comparing model 2 and 3 the results show no significant improvement of model 3 compared to model 2. The model deviance is 9040871201 with $p > .05$. Although the MSE decreases slightly, the AIC stays the same and the BIC increases.
 
 ```{r}
 # Fit lm model 3
@@ -832,11 +850,11 @@ compare_models(data,
 
 ### Model 4: Price predicted by reviews per month, constructionyear and room_type
 
-*One more model was manually checked to determine whether the factor room_type was a predictor of price, after controlling for construction_year and reviews_per_month. Although we beforehand knew that this predictor would not improve the model, we wanted to add a categorical predictor with interaction effect to the analysis for the purpose of the assignment*
+One more model was manually checked to determine whether the factor `room_type` was a predictor of `price_usd`, after controlling for construction_year and reviews_per_month. Although we beforehand knew that this predictor would **not** improve the model, we wanted to add a categorical predictor with interaction effect to the analysis for the purpose of the assignment
 
-*The estimated average price_usd is 633.4169 for a review_rate_number of 1 when construction year and reviews_per_month are held constant. The estimated difference in average price_usd decreases with 2.5368 for a review_rate_number of 2, compared to a review_rate number of 1, for any construction year or reviews_per_month. However, estimated difference in average is not significant. The only significant estimated difference in average price_usd at an alphalevel of .05 is between review_rate_number 1 compared to review_rate_number of 5. The estimated difference in average price_usd decreases with 10.0145 for a review_rate_number of 5, compared to a review_rate number of 1, for any construction year or reviews_per_month.*  
+The estimated average `price_usd` is 633.4169 for a `review_rate_number` of 1 when `construction_year` and `reviews_per_month` are held constant. The estimated difference in average `price_usd` decreases with 2.5368 for a `review_rate_number` of 2, compared to a `review_rate_number` of 1, for any `construction_year` or `reviews_per_month`. However, estimated difference in average is **not** significant. The only significant estimated difference in average `price_usd` at $\alpha = 0.05$ is between `review_rate_number` 1 compared to `review_rate_number` of 5. The estimated difference in average `price_usd` decreases with 10.0145 for a `review_rate_number` of 5, compared to a `review_rate_number` of 1, for any construction year or `reviews_per_month`.  
 
-*When adding an interaction to the model: construction_year and review_rate_number, the results show that there is a significant interaction effect between review_rate_number2 and construction year, which can be interpreted as follows: the strength and direction of the relation between construction_year and price_usd is depends on the review_rate_number, but only review rate number 2.* 
+When adding an interaction to the model: `construction_year` and `review_rate_number`, the results show that there is a significant interaction effect between `review_rate_number2` and `construction year`, which can be interpreted as follows: the strength and direction of the relation between `construction_year` and `price_usd` is depends on the `review_rate_number`, but only `review_rate_number2`.
 
 ```{r}
 # With categorical predictor
@@ -878,20 +896,21 @@ ggplot(data, aes(x = construction_year,
   theme_bw()
 ```
 
-*After manually checking the two models suggested by the forward stepwise regression approach, the conclusion was drawn that there were no significant predictors for price_usd in this dataset. For the purposes of this assignment however, we will continue with the best model identified by the forward stepwise regression approach: model 3 (price_usd predicted by construction_year and reviews_per_month). For this model, predictions were made about the significance of the regression, but we will now first check the assumptions of this model to check if we can use this model to predict future observations*
+After manually checking the two models suggested by the forward stepwise regression approach, the conclusion was drawn that there were no significant predictors for `price_usd` in this dataset. For the purposes of this assignment however, we will continue with the best model identified by the forward stepwise regression approach: model 3 (`price_usd` predicted by `construction_year` and `reviews_per_month`). For this model, predictions were made about the significance of the regression, but we will now first check the assumptions of this model to check if we can use this model to predict future observations
 
 # Assumptions
 
 ## Visual inspection of Linearity and Homoscedasticity
 
-*After visual inspection of the fitted versus residuals plot the conclusion is drawn that the assumption of linearity is met, because it seems that for any fitted value, the residuals seem to be centered roughly around 0, although there seem to be exceptions for the few fitted values > 650..*
-*The assumption of homoscedasticity is harder to interpret, because almost all values are at the left of the plot, but the spread of those residuals does look the same. The few values on the right of the plot, which are far removed from the pattern, might be outliers*
+After visual inspection of the fitted versus residuals plot the conclusion is drawn that the assumption of linearity is met, because it seems that for any fitted value, the residuals seem to be centered roughly around 0, although there seem to be exceptions for the few fitted values > 650.
+
+The assumption of homoscedasticity is harder to interpret, because almost all values are at the left of the plot, but the spread of those residuals does look the same. The few values on the right of the plot, which are far removed from the pattern, might be outliers. 
 
 ```{r}
 # Plot residuals
 ggplot(mapping = aes(x = fitted(model_3),  
                      y = resid(model_3))) +
-  geom_point(color = "pink", 
+  geom_point(color = "lightblue", 
              shape = 20) +
   geom_hline(yintercept = 0, 
              color = "gray", 
@@ -905,9 +924,24 @@ ggplot(mapping = aes(x = fitted(model_3),
   theme_bw()
 ```
 
+```{r}
+# Boxplot for Residuals
+ggplot(mapping = aes(y = resid(model_3))) +
+  geom_boxplot(fill = "lightblue", 
+               color = "black", 
+               outlier.color = "red", 
+               outlier.shape = 20) +
+  labs(
+    title = "Boxplot of Residuals for Model 3",
+    y = "Residuals",
+    x = NULL  # No x-axis label for a single-variable boxplot
+  ) +
+  theme_bw()
+```
+
 ## Formal testing of Homoscedasticity 
 
-*According to the Breusch-Pagan test, the null-hypothesis "The errors have constant variance about the true model" is not rejected (BP= .989, p = .610), so the assumption of homoscedasticity is met.* 
+According to the Breusch-Pagan test, the null-hypothesis "The errors have constant variance about the true model" is not rejected ($BP = .989, p = .610$), so the assumption of homoscedasticity is met. 
 
 ```{r}
 # Perform studentized Breusch-Pagan test
@@ -916,52 +950,74 @@ bptest(model_3)
 
 ## Visual inspection of Normality 
 
-*After visual inspection of the histogram of residuals the conclusion is drawn that the assumption of normality is violated. A QQ-plot was requested to further investigate the suspected non-normality of errors.The QQ-plot clearly shows a S-shape, which is an indication that the normal distribution has heavy 'tails' or more extreme values. Because of the large sample size, formal testing; like the Shapiro test, could not be executed. These tests are very sensitive when sample sizes exceed 5000.* 
+After visual inspection of the histogram of residuals the conclusion is drawn that the assumption of normality is violated. A QQ-plot was requested to further investigate the suspected non-normality of errors.The QQ-plot clearly shows a S-shape, which is an indication that the normal distribution has heavy 'tails' or more extreme values. Because of the large sample size, formal testing; like the Shapiro test, could not be executed. These tests are very sensitive when sample sizes exceed 5000.
 
 ```{r}
 # Histogram of residuals
-hist(resid(model_3),
-     xlab   = "Residuals",
-     main   = "Histogram of Residuals for Model 3",
-     col    = "darkorange",
-     border = "dodgerblue",
-     breaks = 200)
+ggplot(mapping = aes(x = resid(model_3))) +
+  geom_histogram(
+    binwidth = 10,
+    fill = "lightblue", 
+    color = "black"
+  ) +
+  labs(
+    title = "Histogram of Residuals for Model 3",
+    x = "Residuals",
+    y = "Frequency"
+  ) +
+  theme_bw()
 ```
+
+
 ```{r}
 # Q-Q plot of residuals
-qqnorm(resid(model_3), col = "darkgrey")
-qqline(resid(model_3), col = "dodgerblue", lwd = 2)
+ggplot(mapping = aes(sample = resid(model_3))) +
+  stat_qq(color = "darkgrey") +
+  stat_qq_line(color = "dodgerblue", linewidth = 1) +
+  labs(
+    title = "Q-Q Plot of Residuals for Model 3",
+    x = "Theoretical Quantiles",
+    y = "Sample Quantiles"
+  ) +
+  theme_bw()
 ```
 
 ## Testing for multicollineairity 
 
-*The reason why the this assumption is violated, might be due to the extreme amount of observations and the small range of construction year and reviews per month. This reason is expected, because when checking the correlation between those two items, it shows that they are almost uncorrelated (r = .006)*
+Multicollinearity was checked by evaulating VIF values. Upon evalution, it was concluded that the assumption of multicollinearity was **not** violated, since the VIF values did **not** exceed the threshold of 10. 
 
 ```{r}
 # Calculate Variance Inflation Factor (VIF)
 model_3 %>%
   VIF()
-
-# Compute the correlation between reviews_per_month and construction_year
-cor(data$reviews_per_month, data$construction_year)
 ```
 
 ## Influential observations 
 
 ### Outliers 
 
-*Because the plot is not interpretable due to the extreme sample size, the choice was made to only display studentized residuals > 3, which is a common threshold for big datasets, however, there are no studentresiduals bigger than 3 and also no studentresiduals bigger than 2, which is a common threshold for small datasets. Therefore the conclusion was drawn that there are no clear outliers to worry about*
+Because the plot is **not** interpretable due to the extreme sample size, the choice was made to only display studentized residuals larger than 3, which is a common threshold for big datasets, however, there are no student residuals bigger than 3 and also no student residuals bigger than 2, which is a common threshold for small datasets. Therefore the conclusion was drawn that there are no clear outliers to worry about
 
 ```{r}
 # Create plot with studentized residuals
-model_3 %>%
-  rstudent() %>%
-  plot(
-    ylab = "Studentized Residuals",
-    xlab = "Index",
-    main = "Plot of Studentized Residuals"
-  )
+residuals_data <- data.frame(
+  Index = seq_along(rstudent(model_3)),
+  StudentizedResiduals = rstudent(model_3)
+)
+
+# Create plot with ggplot
+ggplot(residuals_data, aes(x = Index, y = StudentizedResiduals)) +
+  geom_point(color = "lightblue", shape = 20) +  # Points for residuals
+  geom_hline(yintercept = 0, color = "gray", 
+             linetype = "solid", linewidth = 1) +  # Horizontal line at 0
+  labs(
+    title = "Plot of Studentized Residuals",
+    x = "Index",
+    y = "Studentized Residuals"
+  ) +
+  theme_bw()  # Consistent theme
 ```
+
 ```{r}
 # Checking if there are student residuals bigger than 2
 sum(abs(rstudent(model_3)) > 2)
@@ -969,15 +1025,26 @@ sum(abs(rstudent(model_3)) > 2)
 
 ### High leverage 
 
-*in the leverage plot, several observations stand out from other observations. Because the dataset is so big, it is quite hard to identify how many and which observations these are, therefor we calculated the sum of large hatvalues. For small/normal samples the threshold of twice the mean hat value is commonly used, however, because of this large dataset we decided to use a threshold of 3 times the mean hat value. This indicated that there are 1907 points of large leverage.*  
+In the leverage plot, several observations stand out from other observations. Because the dataset is so big, it is quite hard to identify how many and which observations these are, therefor we calculated the sum of large hatvalues. For small/normal samples the threshold of twice the mean hat value is commonly used, however, because of this large dataset we decided to use a threshold of 3 times the mean hat value. This indicated that there are 1907 points of large leverage.
 
 ```{r}
-# Plot leverage values for the model
-model_3 %>%
-  hatvalues() %>%
-  plot(main = "Leverage Values for Model 3", 
-       xlab = "Observation Index", 
-       ylab = "Leverage Value")
+# Leverage values for the model
+leverage_data <- data.frame(
+  Index = seq_along(hatvalues(model_3)),
+  Leverage = hatvalues(model_3)
+)
+
+# Create plot
+ggplot(leverage_data, aes(x = Index, 
+                          y = Leverage)) +
+  geom_point(color = "lightblue", 
+             shape = 20) +
+  labs(
+    title = "Leverage Values for Model 3",
+    x = "Observation Index",
+    y = "Leverage Value"
+  ) +
+  theme_bw()
 ```
 
 ```{r}
@@ -987,22 +1054,55 @@ sum(hatvalues(model_3) > 3 * mean(hatvalues(model_3)))
 
 ### Influential Cases
 
-*The DFBETAS was used to check for influential, and possible problematic observations per regression coefficient. The choice was made to plot influential cases for the intercept, reviews_per_month and construction_year. After visual inspection of the plots we saw that the intercept showed several influential cases. We extracted cases > |.02| based on visual inspection of the dfbetas plot  There are 11 influential cases.*
-*Based on visual inspection we also extracted infuential cases > |.05| for reviews per month. 6 influential cases were found.* *The influential cases found for reviewus per month overlap with the influential cases we found in price_usd*
-*We did not find influential cases for construction year.*
+The DFBETAS was used to check for influential, and possible problematic observations per regression coefficient. The choice was made to plot influential cases for the intercept, reviews_per_month and construction_year. After visual inspection of the plots we saw that the intercept showed several influential cases. We extracted cases > |.02| based on visual inspection of the dfbetas plot  There are 11 influential cases. Based on visual inspection we also extracted infuential cases > |.05| for reviews per month. 6 influential cases were found. The influential cases found for reviewus per month overlap with the influential cases we found in price_usd*
+
+We did **not** find influential cases for construction year.
 
 ```{r}
-# dfbetasplot intercept
-plot(dfbetas(model_3)[,1],
-     main = "intercept")
+# Prepare data for dfbetas plots
+dfbetas_data <- data.frame(
+  Index = seq_len(nrow(data)),
+  Intercept = dfbetas(model_3)[, 1],
+  ReviewsPerMonth = dfbetas(model_3)[, 2],
+  ConstructionYear = dfbetas(model_3)[, 3]
+)
 
-# dfbetasplot reviews_per_month
-plot(dfbetas(model_3)[,2],
-     main = "reviews_per_month")
+# Plot dfbetas for Intercept
+ggplot(dfbetas_data, aes(x = Index, 
+                         y = Intercept)) +
+  geom_point(color = "lightblue", 
+             shape = 20) +
+  labs(
+    title = "DFBETAS: Intercept",
+    x = "Index",
+    y = "DFBETAS"
+  ) +
+  theme_bw()
 
-# dfbetasplot construction_year
-plot(dfbetas(model_3)[,3],
-     main = "construction_year")
+# Plot dfbetas for Reviews per Month
+ggplot(dfbetas_data, aes(x = Index, 
+                         y = ReviewsPerMonth)) +
+  geom_point(color = "lightblue", 
+             shape = 20) +
+  labs(
+    title = "DFBETAS: Reviews per Month",
+    x = "Index",
+    y = "DFBETAS"
+  ) +
+  theme_bw()
+
+# Plot dfbetas for Construction Year
+ggplot(dfbetas_data, aes(x = Index, 
+                         y = ConstructionYear)) +
+  geom_point(color = "lightblue", 
+             shape = 20) +
+  labs(
+    title = "DFBETAS: Construction Year",
+    x = "Index",
+    y = "DFBETAS"
+  ) +
+  theme_bw()
+
 ```
 ```{r}
 # Extract outstanding values for intercept
@@ -1022,7 +1122,7 @@ out_obs_reviews <- dfb_reviews[
 out_obs_reviews
 ```
 
-*We decided to remove 1907 points of large leverage and the influential cases. And to fit the model again to see how the coefficients would change and if this could improve the normality assumption.* 
+We decided to remove 1907 points of large leverage and the influential cases. And to fit the model again to see how the coefficients would change and if this could improve the normality assumption. 
 
 ```{r}
 # Removal of influential cases. 
@@ -1054,18 +1154,23 @@ summary(model_3)
 ```
 
 ```{r}
-# Normality check for residuals of Model 3.1 by creating Q-Q plot
-qqnorm(resid(model_3.1), 
-       col = "darkgrey",
-       main = "Q-Q Plot of Residuals for Model 3.1)")
-qqline(resid(model_3.1), 
-       col = "dodgerblue", 
-       lwd = 2)
+# Normality check for residuals of Model 3.1 using Q-Q plot
+ggplot(data = data.frame(Residuals = resid(model_3.1)), aes(sample = Residuals)) +
+  stat_qq(color = "darkgrey") +
+  stat_qq_line(color = "dodgerblue", 
+               linewidth = 1) +
+  labs(
+    title = "Q-Q Plot of Residuals for Model 3.1",
+    x = "Theoretical Quantiles",
+    y = "Sample Quantiles"
+  ) +
+  theme_bw()
 ```
 
-## Model Conclusion
+# Conclusion
 
-*After removal of the 1907 points of large leverage and the influential cases their was a slight change in coëfficients noticable. The estimated average of price_usd was 627.8306 instead of 627.9384 in the original model when reviews_per_month and construction_year are held constant. When construction_year increases with one unit, the estimated average price_usd decreases with 0.2853 instead of 0.3066 like the original model, when controlled for reviews per month. This negative correlation is still not significant. When reviews_per_month increases with one unit, the estimated average price_usd increases with 1.1439 instead of 1.1834 like in the original model. This positive relation however is also not significant. The variance that is explained by both reviews_per_month and construction_year is still extremely small (< .01) and even smaller than the original model.*
+After removal of the 1907 points of large leverage and the influential cases there was a slight change in coëfficients noticable. The estimated average of `price_usd` was 627.8306 instead of 627.9384 in the original model when `reviews_per_month` and `construction_year` are held constant. When `construction_year` increases with one unit, the estimated average price (USD) decreases with 0.2853 instead of 0.3066 as in the original model, when controlled for `reviews_per_month`. This negative correlation is still **not** significant ($p = 0.1265$). When `reviews_per_month` increases with one unit, the estimated average `price_usd` increases with 1.1439 instead of 1.1834 as in the original model. This positive relation however is also **not** significant ($p = 0.0917$). The variance that is explained by both `reviews_per_month` and `construction_year` is still extremely small ($R^2 < .01$) and even smaller than the original model.
 
-*Although model meets the assumption of lineairity, homoscedasticity and independence of error and identified influential cases and points with large leverage were removed, this model can not be used to predict future price_usd for airbnb's. This is due to the violation of assumption of normality, which is less of a big problem for bigger samples, but is always wanted for predicting intervals.* 
+Although model meets the assumption of lineairity, homoscedasticity, independence of error, identified influential cases and points with large leverage were removed, this model can **not** be used to predict future `price_usd` for Airbnb's. This is due to the violation of assumption of normality, which is less of a big problem for bigger samples, but is always wanted for predicting intervals.
 
+To answer our research question “What variables are the best predictors for the price per night of Airbnb bookings in New York?”, we can conclude that none of the variables have a significant predicting power. When considering the fit measures however, from all variables, `construction_year` and `reviews_per_month` have the most influence on the `price_usd` of a Airbnb listing.
