@@ -1,0 +1,961 @@
+---
+title: "FTDR Assignment 1"
+author: "Jesse Nieuwkoop (1689959)"
+date: "28-11-2024-"
+output:
+  html_document:
+    toc: true
+    toc_depth: 4
+    toc_float:
+      collapsed: false
+      expand: 3
+    df_print: paged
+---
+
+---
+
+# Preparation
+
+```{r setup, include = FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Libraries
+
+```{r}
+# Import the libraries
+library(tidyverse)    # For data manipulation
+library(ggplot2)      # For plotting
+library(ggpubr)       # For ggplot grid arrange
+library(kableExtra)   # For fancy tables
+```
+
+## Read data
+
+```{r}
+# Read data
+data <- read.csv("../Airbnb_Open_Data.csv")
+
+# View data structure
+dplyr::glimpse(data)
+```
+
+# Preprocessing
+
+## Duplicates
+
+```{r}
+# Print total duplicates
+sum(duplicated(data$host.id))
+```
+
+```{r}
+# Remove duplicate rows 
+data <- data %>% 
+  dplyr::distinct(host.id, .keep_all = TRUE)
+```
+
+## Subset & Rename
+
+```{r}
+# Subset data
+data <- data %>%
+  dplyr::select(cancellation_policy,
+                room.type,
+                Construction.year,
+                service.fee,
+                minimum.nights,
+                number.of.reviews,
+                reviews.per.month,
+                review.rate.number,
+                availability.365,
+                price)
+
+# Rename column names to snake_case format
+data <- data %>%
+  dplyr::rename(
+    room_type = room.type,
+    construction_year = Construction.year,
+    service_fee = service.fee,
+    minimum_nights = minimum.nights,
+    number_of_reviews = number.of.reviews,
+    reviews_per_month = reviews.per.month,
+    review_rate_number = review.rate.number,
+    availability_365 = availability.365,
+    price_usd = price
+  )
+```
+
+## Missing values
+
+```{r}
+# Count missing data
+data %>%
+  dplyr::summarise(across(everything(), ~ sum(is.na(.)))) %>%
+  tidyr::pivot_longer(
+    cols = everything(),
+    names_to = "Variable",
+    values_to = "NA Count"
+  )
+```
+
+```{r}
+# Drop all rows that contain empty or missing values
+data <- data %>%
+  # Convert empty character variables to NA
+  mutate(across(where(is.character), ~ trimws(.))) %>%
+  mutate(across(where(is.character), ~ na_if(., ""))) %>%
+  
+  # Drop records with NA values
+  drop_na()
+```
+
+## Measurement level check
+
+```{r}
+data <-data %>%
+  mutate(review_rate_number_c = review_rate_number)
+```
+
+
+```{r}
+# Convert variables to factor types
+data <- data %>%
+  dplyr::mutate(
+    cancellation_policy = as.factor(cancellation_policy),
+    room_type = as.factor(room_type),
+    review_rate_number = as.factor(review_rate_number)
+  )
+
+# View new structure
+str(data$cancellation_policy)
+str(data$room_type)
+str(data$review_rate_number)
+```
+
+```{r}
+# Parse price numeric values
+data <- data %>%
+  dplyr::mutate(
+    price_usd = parse_number(price_usd),
+    service_fee = parse_number(service_fee)
+  )
+```
+
+## Individual outlier removal
+
+```{r}
+# Store data before outlier removal for later comparison
+data_pre_outlier_removal <- data
+```
+
+### Functions
+
+#### capitalize_str()
+
+```{r}
+# Function to format column name to spaced, capitalized string
+capitalize_str <- function(string) {
+  # Replace underscores with spaces and capitalize each word
+  formatted_name <- gsub("_", " ", string)
+  formatted_name <- tools::toTitleCase(formatted_name)
+  
+  # Return result
+  return(formatted_name)
+}
+```
+
+#### summary_table_cat()
+
+```{r}
+# Function to display comparison summary table
+summary_table_cat <- function(data1, data2 = NULL, variable, sort = "none") {
+  # Summarize data1
+  summary_data1 <- data1 %>%
+    group_by(across(all_of(variable))) %>%
+    summarise(
+      `Frequency (Before)` = n(),
+      `Percentage (Before)` = (n() / nrow(data1)) * 100
+    )
+  
+  if (!is.null(data2)) {
+    # Summarize data2 if provided
+    summary_data2 <- data2 %>%
+      group_by(across(all_of(variable))) %>%
+      summarise(
+        `Frequency (After)` = n(),
+        `Percentage (After)` = (n() / nrow(data2)) * 100
+      )
+    
+    # Merge summaries
+    result <- full_join(summary_data1, summary_data2, by = variable) %>%
+      mutate(
+        `Percentage (Before)` = sprintf("%.2f%%", `Percentage (Before)`),
+        `Percentage (After)` = sprintf("%.2f%%", `Percentage (After)`)
+      )
+    
+    # Apply sorting
+    if (sort == "asc") {
+      result <- result %>% arrange(`Frequency (Before)`)
+    } else if (sort == "desc") {
+      result <- result %>% arrange(desc(`Frequency (Before)`))
+    }
+  } else {
+    # For single dataset case
+    result <- summary_data1 %>%
+      mutate(
+        `Percentage (Before)` = sprintf("%.2f%%", `Percentage (Before)`)
+      ) %>%
+      rename(`Frequency` = `Frequency (Before)`,
+             `Percentage` = `Percentage (Before)`)
+    
+    # Apply sorting
+    if (sort == "asc") {
+      result <- result %>% arrange(Frequency)
+    } else if (sort == "desc") {
+      result <- result %>% arrange(desc(Frequency))
+    }
+  }
+  
+  # Rename the variable column
+  result <- result %>%
+    rename(!!capitalize_str(variable) := all_of(variable))
+  
+  # Display table
+  result <- result %>%
+    kbl() %>%
+    kable_classic() %>%
+    kable_styling(latex_options = c("striped"), full_width = F)
+  
+  # Return table
+  return(result)
+}
+
+```
+
+#### summary_table_nums()
+
+```{r}
+# Create function to create summary table for numerical variables
+summary_table_nums <- function(data, variables) {
+  # Compile summary table
+  summary <- data.frame(
+    Mean = sapply(variables, function(var) round(mean(data[[var]]), 3)),
+    Min = sapply(variables, function(var) min(data[[var]])),
+    Median = sapply(variables, function(var) median(data[[var]])),
+    Max = sapply(variables, function(var) max(data[[var]])),
+    SD = sapply(variables, function(var) round(sd(data[[var]]), 3))
+  )
+  
+  # Temporarily rename rownames using capitalize_str
+  rownames(summary) <- sapply(variables, capitalize_str)
+  
+  # Display summary table
+  summary <- summary %>%
+    kbl() %>%
+    kable_classic(latex_options = c("striped"), full_width = TRUE)
+  
+  # Return table
+  return(summary)
+}
+```
+
+#### plot_histogram()
+
+```{r}
+# Function to create a histogram
+plot_histogram <- function(data, variable, title = NULL, binwidth = NULL, bins = NULL) {
+  
+  # Compile plot
+  plot <- ggplot(data, aes(x = .data[[variable]])) +
+    geom_histogram(binwidth = binwidth, 
+                   bins = bins, 
+                   fill = "lightblue",
+                   color = "black") +
+    labs(
+      title = title,
+      x = capitalize_str(variable),
+      y = "Frequency",
+      fill = variable
+    ) +
+    theme_bw()
+  
+  # Return plot
+  return(plot)
+}
+```
+
+### General
+
+```{r}
+summary_table_nums(data, c("construction_year", 
+                               "service_fee", 
+                               "minimum_nights", 
+                               "number_of_reviews", 
+                               "reviews_per_month", 
+                               "availability_365", 
+                               "price_usd")
+                   )
+```
+
+### Categorical variables
+
+#### 1: cancellation_policy
+
+```{r}
+# Verify structure of factors
+str(data$cancellation_policy)
+
+# Verify levels of factors
+levels(data$cancellation_policy)
+
+# Verify if ordered
+is.ordered(data$cancellation_policy)
+```
+
+```{r}
+# Show summary table
+(table_1_pre <- summary_table_cat(data, 
+                                  variable = "cancellation_policy")
+)
+```
+
+```{r}
+# Show bar plot
+(plot_1_pre <- ggplot(data) +
+  geom_bar(aes(x = cancellation_policy, fill = cancellation_policy)) +
+  scale_fill_manual(values = c("flexible" = "lightgreen", 
+                               "moderate" = "lightblue", 
+                               "strict" = "tomato")) +
+  labs(title = "Bar Plot of Cancellation Policy",
+       fill = "Type of Policy",
+       x = "Type of Policy",
+       y = "Frequency"
+      ) +
+  theme_bw()
+)
+```
+
+#### 2: room_type
+
+```{r}
+# Verify structure of factors
+str(data$room_type)
+
+# Verify levels of factors
+levels(data$room_type)
+
+# Verify if ordered
+is.ordered(data$room_type)
+```
+
+```{r}
+# Show summary table
+(table_2_pre <- summary_table_cat(data, 
+                                  variable = "room_type", 
+                                  sort = "desc")
+)
+```
+
+```{r}
+# Show bar plot
+# https://www.learnui.design/tools/data-color-picker.html#palette
+(plot_2_pre <- ggplot(data) +
+  geom_bar(aes(x = fct_infreq(room_type,         # Sort on freq
+                              ordered = FALSE),
+               fill = room_type)) +
+  scale_fill_manual(values = c("Entire home/apt" = "#58508d", 
+                               "Private room" = "#ff6361", 
+                               "Shared room" = "#ffa600",
+                               "Hotel room" = "#bc5090")) +
+  labs(title = "Bar Plot of Room Type",
+       fill = "Type of Room",
+       x = "Type of Room",
+       y = "Frequency"
+      ) +
+  theme_bw()
+)
+```
+
+#### 3: review_rate_number
+
+```{r}
+# Verify structure of factors
+str(data$review_rate_number_f)
+
+# Verify levels of factors
+levels(data$review_rate_number_f)
+
+# Verify if ordered
+is.ordered(data$review_rate_number_f)
+```
+
+```{r}
+# Show summary table
+(table_3_pre <- summary_table_cat(data, 
+                                  variable = "review_rate_number")
+)
+```
+
+```{r}
+# Show bar plot
+# https://www.learnui.design/tools/data-color-picker.html#divergent
+(plot_3_pre <- ggplot(data) +
+  geom_bar(aes(x = review_rate_number,
+               fill = review_rate_number)) +
+  scale_fill_manual(values = c("1" = "#de425b", 
+                               "2" = "#fa9e5d", 
+                               "3" = "#ffd582",
+                               "4" = "#8bbe7a",
+                               "5" = "#488f31")) +
+  labs(title = "Before",
+       fill = "Rate Number",
+       x = "Rate Number",
+       y = "Frequency"
+      ) +
+  theme_bw()
+)
+```
+
+### Numerical variables
+
+#### 4: construction_year
+
+```{r}
+# Plot histogram
+(plot_4_pre <- plot_histogram(data, 
+                              "construction_year", 
+                              "Before",
+                              binwidth = 1)
+)
+```
+
+#### 5: service_fee
+
+[ ] (Almost) Exactly determined by price_usd, so not a viable predictor.
+
+```{r}
+# Strong suspicion this is dependent on price_usd
+cor(data$price_usd, data$service_fee)
+```
+
+```{r}
+# Plot histogram
+(plot_5_pre <- plot_histogram(data, 
+                              "service_fee", 
+                              "Before",
+                              binwidth = 5)
+)
+```
+
+#### 6: minimum_nights
+
+[ ] Removed values below 1 and above 365
+
+```{r}
+# Plot histogram
+(plot_6_pre <- plot_histogram(data, 
+                              "minimum_nights", 
+                              "Before",
+                              binwidth = 3)
+ )
+```
+
+```{r}
+# Count values
+sum(data$minimum_nights < 1)
+sum(data$minimum_nights > 365)
+```
+
+```{r}
+# Remove all values below 1 and above 365 from dataset
+data <- data[data$minimum_nights >= 1 & data$minimum_nights <= 365, ]
+```
+
+#### 7: number_of_reviews
+
+```{r}
+# Plot histogram
+(plot_7_pre <- plot_histogram(data, 
+                              "number_of_reviews", 
+                              "Before",
+                              binwidth = 10)
+)
+```
+
+#### 8: reviews_per_month
+
+[ ] Removed reviews_per_month > 45 (one and a half month)
+
+```{r}
+# Plot histogram
+(plot_8_pre <- plot_histogram(data, 
+                              "reviews_per_month", 
+                              "Before",
+                              binwidth = 1)
+)
+```
+
+```{r}
+# View count of reviews_per_month values
+data %>%
+  count(reviews_per_month) %>%
+  arrange(desc(reviews_per_month))
+```
+
+```{r}
+# Remove values > 45 reviews_per_month
+data <- data[data$reviews_per_month <= 45, ]
+```
+
+#### 9: availability_365
+
+```{r}
+# Plot histogram
+(plot_9_pre <- plot_histogram(data, 
+                              "availability_365", 
+                              "Before",
+                              binwidth = 7)
+)
+```
+
+```{r}
+# Count values
+sum(data$availability_365 < 0)
+sum(data$availability_365 > 365)
+```
+
+```{r}
+# Remove values below 1 and above 365
+data <- data[data$availability_365 >= 0 & data$availability_365 <= 365, ]
+```
+
+#### 10: price_usd
+
+```{r}
+# Plot histogram
+(plot_10_pre <- plot_histogram(data, 
+                               "price_usd", 
+                               "Before",
+                               binwidth = 10)
+)
+```
+
+## Final variable inspection
+
+### Categorical variables
+
+#### 1: cancellation_policy
+
+```{r}
+# View summary comparison of cancellation_policy
+summary_table_cat(data1 = data_pre_outlier_removal, 
+                  data2 = data,
+                  variable = "cancellation_policy")
+```
+
+
+#### 2: room_type
+
+```{r}
+# View summary comparison of room_type
+summary_table_cat(data1 = data_pre_outlier_removal, 
+                  data2 = data,
+                  variable = "room_type")
+```
+
+
+#### 3: review_rate_number
+
+```{r}
+# View summary comparison of review_rate_number
+summary_table_cat(data1 = data_pre_outlier_removal, 
+                  data2 = data,
+                  variable = "review_rate_number")
+```
+
+
+### Numerical variables
+
+```{r}
+summary_table_nums(data, c("construction_year", 
+                           "service_fee", 
+                           "minimum_nights", 
+                           "number_of_reviews", 
+                           "reviews_per_month", 
+                           "availability_365", 
+                           "price_usd")
+                   )
+```
+
+#### 4: construction_year
+
+```{r}
+# Plot histogram after outlier removal
+plot_4_post <- plot_histogram(data, 
+                              "construction_year", 
+                              "After",
+                              binwidth = 1)
+
+# Compare plots of before and after outlier removal
+ggarrange(plot_4_pre, plot_4_post, ncol = 2, nrow = 1)
+```
+
+#### 5: service_fee
+
+```{r}
+# Plot histogram after outlier removal
+plot_5_post <- plot_histogram(data, 
+                              "service_fee", 
+                              "After",
+                              binwidth = 5)
+
+# Compare plots of before and after outlier removal
+ggarrange(plot_5_pre, plot_5_post, ncol = 2, nrow = 1)
+```
+
+#### 6: minimum_nights
+
+```{r}
+# Plot histogram after outlier removal
+plot_6_post <- plot_histogram(data, 
+                              "minimum_nights", 
+                              "After",
+                              binwidth = 3)
+
+# Compare plots of before and after outlier removal
+ggarrange(plot_6_pre, plot_6_post, ncol = 2, nrow = 1)
+```
+
+#### 7: number_of_reviews
+
+```{r}
+# Plot histogram after outlier removal
+plot_7_post <- plot_histogram(data, 
+                              "number_of_reviews", 
+                              "After",
+                              binwidth = 10)
+
+# Compare plots of before and after outlier removal
+ggarrange(plot_7_pre, plot_7_post, ncol = 2, nrow = 1)
+```
+
+#### 8: reviews_per_month
+
+```{r}
+# Plot histogram after outlier removal
+plot_8_post <- plot_histogram(data, 
+                              "reviews_per_month", 
+                              "After",
+                              binwidth = 1)
+
+# Compare plots of before and after outlier removal
+ggarrange(plot_8_pre, plot_8_post, ncol = 2, nrow = 1)
+```
+
+#### 9: availability_365
+
+```{r}
+# Plot histogram after outlier removal
+plot_9_post <- plot_histogram(data, 
+                              "availability_365", 
+                              "After",
+                              binwidth = 7)
+
+# Compare plots of before and after outlier removal
+ggarrange(plot_9_pre, plot_9_post, ncol = 2, nrow = 1)
+```
+
+#### 10: price_usd
+
+```{r}
+# Plot histogram after outlier removal
+plot_10_post <- plot_histogram(data, 
+                              "price_usd", 
+                              "After",
+                              binwidth = 10)
+
+# Compare plots of before and after outlier removal
+ggarrange(plot_10_pre, plot_10_post, ncol = 2, nrow = 1)
+```
+
+# Linear Regression
+
+```{r}
+cor(data$price_usd, data$service_fee)
+```
+
+## Functions
+
+### compare_models()
+
+```{r}
+# Function to compare fit measures of multiple models
+compare_models <- function(data, response_var, compare_with_first = FALSE, ...) {
+  # Capture models and their names
+  models <- list(...)
+  model_names <- as.character(substitute(list(...)))[-1] # Extract model names
+  num_models <- length(models)
+  
+  # Initialize variables to store results
+  aic_vals <- numeric(num_models)
+  bic_vals <- numeric(num_models)
+  mse_vals <- numeric(num_models)
+  r_squared <- numeric(num_models)
+  deviance_rss <- c(NA, rep(NA, num_models - 1))
+  deviance_pvalue <- c(NA, rep(NA, num_models - 1))
+  
+  # Loop through models to compute fit measures
+  for (i in seq_along(models)) {
+    aic_vals[i] <- AIC(models[[i]])
+    bic_vals[i] <- BIC(models[[i]])
+    mse_vals[i] <- mean(models[[i]]$residuals^2)
+    r_squared[i] <- summary(models[[i]])$r.squared
+    
+    # Perform ANOVA tests
+    if (compare_with_first && i > 1) {
+      # Compare all models with the first model
+      anova_test <- anova(models[[1]], models[[i]])
+      deviance_rss[i] <- anova_test$RSS[2]
+      deviance_pvalue[i] <- anova_test$`Pr(>F)`[2]
+    } else if (i > 1) {
+      # Compare each model with the previous model
+      anova_test <- anova(models[[i - 1]], models[[i]])
+      deviance_rss[i] <- anova_test$RSS[2]
+      deviance_pvalue[i] <- anova_test$`Pr(>F)`[2]
+    }
+  }
+  
+  # Compile results into a tibble
+  fit_measures <- tibble(
+    Model = model_names,
+    AIC = aic_vals,
+    BIC = bic_vals,
+    MSE = mse_vals,
+    `R^2` = round(r_squared, 3),
+    `Dev. RSS` = deviance_rss,
+    `Dev. p-value` = deviance_pvalue
+  )
+  
+  # Return fit measures
+  return(fit_measures)
+}
+```
+
+## Models
+
+```{r}
+glimpse(data)
+```
+
+```{r}
+# Dupe data
+data2 <- data
+
+# Remove review_rate_number_c from data
+data <- data %>%
+  select(-review_rate_number_c)
+
+# Remove review_rate_number from data2
+data2 <- data2 %>%
+  select(-review_rate_number)
+```
+
+```{r}
+# Remove service_fee variable from data for step regression
+data <- data %>%
+  select(-service_fee)
+```
+
+```{r}
+# Remove service_fee variable from data for step regression
+data2 <- data2 %>%
+  select(-service_fee)
+```
+
+```{r}
+glimpse(data2)
+```
+
+### Model 0
+
+We beginnen met een null model met alleen price_usd en intercept. Dit geeft het geschatte gemiddelde van price_usd; 626.668 (intercept estimate).
+
+```{r}
+# Define the null model (starting point)
+model_null <- lm(price_usd ~ 1, 
+                 data)
+
+# Show model summary
+summary(model_null)
+```
+
+### Model Forward Step
+
+```{r}
+# Perform forward step regression
+model_forward <- step(
+  null_model, 
+  direction = "forward", 
+  scope = formula(lm(price_usd ~ ., data)),
+  trace = TRUE
+)
+```
+
+### Model 2
+
+Op basis van de forward stepwise regression is de eerstvolgende predictor die toegevoegd wordt aan het model 'reviews_per_month'.
+
+Wanneer reviews_per_month wordt toegevoegd als predictor, is de gemiddelde geschatte price_usd 625.0372 (intercept estimate, waarbij reviews_per_month 0 is).
+
+Vervolgens zien we dat als reviews_per_month met 1 unit stijgt, dat de geschatte gemiddelde price_usd met 1.1770 stijgt. Dit effect is niet significant.
+
+```{r}
+model_2 <- lm(price_usd ~ 
+                reviews_per_month,
+              data = data)
+
+summary(model_2)
+```
+
+Wanneer reviews_per_month wordt toegevoegd:
+AIC daalt met 1. Aangezien een lagere AIC beter is, is dit dus een verbetering.
+BIC wordt 9 hoger. Een hogere BIC is onwenselijk.
+MSE wordt 3.8 lager. Een lagere MSE is wenselijk.
+De variantie van price_usd die wordt verklaard door het reviews_per_month is 3.422e-05. Dit betekent dat deze predictor weinig effect heeft op de variantie van price_usd.
+
+De deviance p value is > 0.05, dit suggereert dat het toevoegen van reviews_per_month het model niet significant verbetert ten opzichte van de baseline.
+
+```{r}
+compare_models(data,
+              "price_usd",
+              FALSE,
+              model_null,
+              model_1)
+```
+
+### Model 3
+
+```{r}
+# Center construction_year
+data <- data %>%
+  mutate(construction_year = construction_year - 2003)
+```
+
+```{r}
+model_3 <- lm(price_usd ~ 
+                reviews_per_month +
+                construction_year,
+              data = data)
+
+summary(model_3)
+```
+
+Het geschatte gemiddelde van price_usd wanneer reviews_per_month en construction_year constant zijn is 627.9384. 
+
+Wanneer construction_year met 1 unit stijgt, daalt price_usd met 0.3066, gegeven dat reviews_per_month constant blijft. De twee zijn dus negatief gecorreleerd.
+
+Wanneer reviews_per_month met 1 unit stijgt, stijgt price_usd met 1.1834, gegeven dat construction_year constant blijft. Hierbij wordt het effect van de andere variabelen in het model meegenomen.Deze twee zijn deus positief gecorreleerd.
+
+De fit measures tonen aan dat dit model geen significante verbetering heeft ten opzichte van het model met alleen reviews_per_month. 
+
+AIC blijft hetzelfde.
+BIC is hoger, met 9.
+MSE is lager, met 3.1
+R^2 is hoger!
+
+```{r}
+compare_models(data,
+              "price_usd",
+              FALSE,
+              model_2,
+              model_3)
+```
+
+### Model 4
+
+We hebben handmatig cancellation_policy toegevoegd, om te kijken hoe dit kunnen interpreteren, ook al weten we dat dit het model niet verbetert.
+
+Het geschatte gemiddelde van price_usd voor flexible cancellation_policy is 629.2754 wanneer reviews_per_month en construction_year constant zijn. 
+
+Het geschatte verschil in gemiddelde van price_usd voor moderate cancellation_policy vergeleken met flexible cancellation_policy is -2.1593, wanneer reviews_per_month en construction_year constant zijn. Dus met een moderate policy is de prijs gemiddeld 2.1593 lager dan met een flexible policy.
+
+Het geschatte verschil in gemiddelde van price_usd voor strict cancellation_policy vergeleken met flexible cancellation_policy is -1.8438, wanneer reviews_per_month en construction_year constant zijn. Dus met een strict policy is de prijs gemiddeld 1.8438 lager dan met een flexible policy.
+
+Ze hebben dezelfde slope met een andere intercept. Dit betekent dat de invloed van de cancellation_policy op price_usd afhangt van de waarde van andere variabelen (zoals reviews_per_month en construction_year), waardoor de groepen verschillende intercepts hebben. Daarom voegen we een interactie effect toe.
+
+```{r}
+model_4 <- lm(price_usd ~ 
+                reviews_per_month +
+                construction_year +
+                cancellation_policy,
+              data = data)
+
+summary(model_4)
+```
+
+### Model 5: Interactie
+We zien dat het geschatte gemiddelde van price_usd wanneer reviews_per_month, construction_year en cancellation_policy constant zijn, 628.51525 is.
+
+Wanneer reviews_per_month met 1 unit stijgt, stijgt price_usd met 1.1805, geegven dat de andere variabelen constant zijn. Dit is een positieve correlatie.
+Het effect van reviews_per_month is marginaal significant met een p-waarde van 0.0926
+
+Wanneer construction_year met 1 unit stijgt, daalt price_usd met 0.2261, gegeven dat reviews_per_month en cancellation_policy constant blijven. Dit effect is echter niet significant (p-waarde = 0.5170).
+
+De interactie-effecten tussen construction_year en cancellation_policy zijn niet significant. De schattingen voor construction_year:cancellation_policymoderate (0.0451) en construction_year:cancellation_policystrict (-0.2864) hebben beide een hoge p-waarde (respectievelijk 0.9269 en 0.5609), wat betekent dat de invloed van construction_year op price_usd niet verschilt voor de verschillende cancellation_policy-categorieën.
+
+De fit measures tonen aan dat dit model geen significante verbetering biedt.
+
+De AIC en BIC zijn hoger.
+De MSE is realtief hoog.
+R^2 is zeer laag, wat aangeeft dat het model nauwelijks variatie in price_usd verklaart.
+
+
+```{r}
+model_5 <- lm(price_usd ~ 
+                reviews_per_month + 
+                construction_year * cancellation_policy,
+              data = data)
+
+summary(model_5)
+```
+
+#### Plot 
+
+```{r}
+# aes() in geom_point(), otherwise loess line will be separated over colors
+ggplot(data) +
+  geom_point(aes(x = construction_year,
+                 y = price_usd,
+                 colour = cancellation_policy)) +
+  scale_color_manual(values = c("flexible" = "steelblue2", 
+                                "moderate" = "springgreen3", 
+                                "strict" = "tomato1")) +
+  theme_bw() +
+  stat_smooth(aes(x = construction_year,
+                  y = price_usd,
+                  colour = cancellation_policy), 
+               method = "lm", 
+               se = FALSE) +
+   labs(title = "Regression Line of Sepal Length and Petal Width")
+```
+
+# Assumptions
+
+## Model 3 (Final)
+
+[ ] Linearity
+[ ] Normality Check
+[ ] Homoscedasticity (Gelijke Variantie)
+[ ] 
+
+### Linearity & Homoscedasticity
+
+Assumptie voor linearity en homoscedasticity zijn NIET met. 
+
+```{r}
+plot(fitted(model_3), resid(model_3), col = 'pink', pch = 20,
+     xlab = "Fitted", ylab = "Residuals", main = "Data from Model_3")
+abline(h = 0, col = "gray", lwd = 2)
+```
+
