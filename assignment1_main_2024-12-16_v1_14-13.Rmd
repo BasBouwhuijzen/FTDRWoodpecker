@@ -34,6 +34,8 @@ library(regclass)     # Assumption Checks
 
 ## Read data
 
+[Dataset URL](https://www.kaggle.com/datasets/arianazmoudeh/airbnbopendata)
+
 ```{r}
 # Read data
 data <- read.csv("Airbnb_Open_Data.csv")
@@ -106,7 +108,7 @@ data %>%
   )
 ```
 
- *The decision was made to handle missing data with listwise deletion, which means excluding rows containing missing values from the analysis. This choice was made, because a complete dataset was preferred and it was possible, because the dataset contained over 60.000 observations* 
+*The decision was made to handle missing data with listwise deletion, which means excluding rows containing missing values from the analysis. This choice was made, because a complete dataset was preferred and it was possible, because the dataset contained over 60.000 observations* 
  
 ```{r}
 # Drop all rows that contain empty or missing values
@@ -914,7 +916,7 @@ bptest(model_3)
 
 ## Visual inspection of Normality 
 
-*After visual inspection of the histogram of residuals the conclusion is drawn that the assumption of linearity is violated. A QQ-plot was requested to further investigate the suspected non-normality of errors.The QQ-plot clearly shows a S-shape, which is an indication that the normal distribution has heavy 'tails' or more extreme values. Because of the large sample size, formal testing; like the Shapiro test, could not be executed. These tests are very sensitive when sample sizes exceed 5000.* 
+*After visual inspection of the histogram of residuals the conclusion is drawn that the assumption of normality is violated. A QQ-plot was requested to further investigate the suspected non-normality of errors.The QQ-plot clearly shows a S-shape, which is an indication that the normal distribution has heavy 'tails' or more extreme values. Because of the large sample size, formal testing; like the Shapiro test, could not be executed. These tests are very sensitive when sample sizes exceed 5000.* 
 
 ```{r}
 # Histogram of residuals
