@@ -69,6 +69,7 @@ table(data$Purchased)
       )
       
 -Model comparisons - fitmeasures vergelijken
+
 #Null model
 ```{r null-model}
 # Define the null model

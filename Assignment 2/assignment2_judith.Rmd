@@ -1,0 +1,116 @@
+---
+title: "Assignment2_judith"
+author: "j. van der Wolf"
+date: "2025-01-06"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+---
+title: "Assignment 2"
+subtitle: "Fundamental Techniques in Data Science with R"
+author: "Judith van der Wolf (4661672) Jesse Nieuwkoop (1689959) Bas Bouwhuijzen (2130616) Jay de Jager (6990703)"
+date: "06-01-2025"
+output:
+  html_document:
+    toc: true
+    toc_depth: 4
+    toc_float:
+      collapsed: false
+      expand: 3
+    df_print: paged
+---
+#Libraries
+```{r}
+library(dplyr)
+```
+
+```{r}
+data <- read.csv("Customer_Behaviour.csv")
+glimpse(data)
+```
+
+#Rename 
+```{r}
+# Rename column names to snake_case format
+data <- data %>%
+  dplyr::rename(
+    User_ID = User.ID
+  )
+```
+
+#change to factor 
+```{r}
+data <- data %>%
+  dplyr::mutate(
+    Gender = as.factor(Gender),
+    Purchased  = as.factor(Purchased )
+  )
+```
+
+#summary NA
+```{r}
+sum(is.na(data))
+```
+
+#Inspect duplicates
+```{r}
+sum(duplicated(data$User_ID))
+```
+
+#Individual variable check 
+```{r}
+#counts
+table(data$Gender)
+table(data$Purchased)
+```
+
+-Dataset beschrijven; variabelen, onderzoeksvraag
+-Datacleaning 
+-Variable check individueel -> indien rare shit, verwijderen
+-Grafiekjes maken Boxplots (categorisch) + histograms (continuous) (Jesse :) ) 
+-Model bepalen (
+      -empty beginnen
+      -empty model + inkomen
+      -empty model + inkomen + age
+      -empty model + inkomen + age + gender
+      )
+      
+-Model comparisons - fitmeasures vergelijken
+
+#Null model
+```{r null-model}
+# Define the null model
+model_null <- glm(Purchased ~ 1, data = data, family = binomial)
+summary(model_null)
+```
+
+#Individual variable check 
+```{r}
+#counts
+table(data$Gender)
+table(data$Purchased)
+```
+
+-Dataset beschrijven; variabelen, onderzoeksvraag
+-Datacleaning 
+-Variable check individueel -> indien rare shit, verwijderen
+-Grafiekjes maken Boxplots (categorisch) + histograms (continuous) (Jesse :) ) 
+-Model bepalen (
+      -empty beginnen
+      -empty model + inkomen
+      -empty model + inkomen + age
+      -empty model + inkomen + age + gender
+      )
+      
+-Model comparisons - fitmeasures vergelijken
+
+#Null model
+```{r null-model}
+# Define the null model
+model_null <- glm(Purchased ~ 1, data = data, family = binomial)
+summary(model_null)
+```
