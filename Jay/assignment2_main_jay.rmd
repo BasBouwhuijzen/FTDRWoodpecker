@@ -2,7 +2,7 @@
 title: "Assignment 2"
 subtitle: "Fundamental Techniques in Data Science with R"
 author: "Judith van der Wolf (4661672) Jesse Nieuwkoop (1689959) Bas Bouwhuijzen (2130616) Jay de Jager (6990703)"
-date: "06-01-2025"
+date: "16-12-2024"
 output:
   html_document:
     toc: true
@@ -69,7 +69,6 @@ table(data$Purchased)
       )
       
 -Model comparisons - fitmeasures vergelijken
-
 #Null model
 ```{r null-model}
 # Define the null model
@@ -97,11 +96,15 @@ The AIC is 1 point higher than the null model's AIC, which suggests it is a wors
 
 #Model 2: Gender + Age
 ```{r model-2}
+# Center Age? EDIT
+#data <- data %>%
+#  mutate(Age = Age - 18)
+
 # Logistic regression with Gender and Age as predictors
 model_2 <- glm(Purchased ~ Gender + Age, data = data, family = binomial)
 summary(model_2)
 ```
-Intercept of -8.11537, low probability of purchase, when age is 0. The z and p values determine the intercept to be highly statistically significant.
+Intercept of -8.11537, low probability of purchase, when age is 0 and gender 0 (female). The z and p values determine the intercept to be highly statistically significant. In the dataset, the minimum age is 18.
 
 GenderMale indicates that being male increases the log-odds of purchasing by 0.09468 compared to females, holding Age constant. However, this effect is not statistically significant.
 
@@ -125,7 +128,7 @@ The coefficient for GenderMale suggests that being male increases the log-odds o
 
 Each increase of age by 1 unit increases the log-odds of purchase by 0.2370, holding Gender and Estimated Salary constant. This corresponds to an increase of 27% in odds for each additional year of age. Age is highly statistically significant.
 
-The coefficient for EstimatedSalary suggests that for every unit increase in salary, the log-odds of purchase increase by 0.00003644, while Gender and Age remain constant. This is statistically significant. This effect seems small, but do not forget that it applies to every single unit of currency.
+The coefficient for EstimatedSalary suggests that for every unit increase in salary, the log-odds of purchase increase by 0.00003644, while Gender and Age remain constant. This is statistically significant. This effect seems small, but do not forget that it applies to every single unit of currency. (stappen van duizend in de dataset) increment -> 1000 units of currency. Kaggle does little to describe the nature of the data. However, seeing the influence of salary, we can conclude the pruchased product is among luxury goods. EDIT
 
 The residual deviance has dropped significantly compared to all other models. Indicating that EstimatedSalary provides great improvement in model fit.
 
@@ -143,9 +146,22 @@ model_comparison <- model_comparison %>%
 # Display Model Comparison Table
 print(model_comparison)
 ```
-Model 3 is the best fit, with a significantly lower AIC value. The addition of Age and EstimatedSalary significantly improves the model fit.
+Model 3 is the best fit, with a much lower AIC value than the alternatives. The addition of Age and EstimatedSalary significantly improves the model fit, while Gender does not.
 
--Assumptions 
-  
-  
+-Interaction effects
+```{r}
+# Logistic regression with multiple interactions
+model_multiple_interactions <- glm(Purchased ~ Gender * Age + Age * EstimatedSalary + Gender * EstimatedSalary, data = data, family = binomial)
+summary(model_multiple_interactions)
+```
+The coefficient for GenderMale:Age suggests that age has a slightly stronger effect for males compared to females, but this difference is not statistically significant (p = 0.404).
+
+The coefficient for Age:EstimatedSalary negative and highly significant (p < 0.001):
+This suggests that as Age increases, the positive effect of EstimatedSalary on purchasing weakens slightly.
+For example, while a higher salary increases the likelihood of purchasing for younger individuals, its effect diminishes for older individuals.
+
+The coefficient for GenderMale:EstimatedSalary is very small and not statistically significant (p = 0.894). This indicates that the relationship between EstimatedSalary and purchasing is consistent across genders.
+
+-Assumptions
+
 -Conclusie 
