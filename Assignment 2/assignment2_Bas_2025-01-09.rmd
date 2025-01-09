@@ -457,7 +457,13 @@ model_null <- glm(purchased ~ 1,
                   family = binomial)
 summary(model_null)
 ```
-Null model intercept of -0.5862 converts to 35.75% purchasing probability. Found by converting the exponential of the log-odds to statistical odds.
+Null model intercept of -0.5862.
+```{r}
+x <- -0.5862
+probability <- exp(x) / (1 + exp(x))
+print(probability)
+```
+Which converts to 35.75% purchasing probability. Found by converting the exponential of the log-odds to statistical odds.
 As it is the null model, highly significant and strong prediction with outcome.
 
 ### Model 1: Gender as predictor
@@ -470,7 +476,13 @@ model_1 <- glm(purchased ~
                family = binomial)
 summary(model_1)
 ```
-Here, Gender: 0 is assumed as "Female", the reference category. The intercept for that category is -0.5004. 37.50% purchasing probability
+Here, Gender: 0 is assumed as "Female", the reference category. The intercept for that category is -0.5004.
+```{r}
+x <- -0.5004
+probability <- exp(x) / (1 + exp(x))
+print(probability)
+```
+Which converts to 37.74% purchasing probability.
 
 For GenderMale, the "Male" category, the coefficent is -0.1775. Being male reduces the log-odds of purchasing by 0.1775. Lower probability of purchasing compared to being female. The P-value is 0.395858, which is not statistically significant. Therefore Gender does not significantly affect the purchasing probability in this model.
 
@@ -494,7 +506,17 @@ Intercept of -8.11537, low probability of purchase, when age is 0. The z and p v
 
 GenderMale indicates that being male increases the log-odds of purchasing by 0.09468 compared to females, holding Age constant. However, this effect is not statistically significant.
 
-The coefficient for Age indicates that each one-unit increase in age increases the log-odds of purchasing by 0.18954, holding Gender constant. Older individuals are much more likely to purchase. For each additional year of age, the odds increase approximately by e^0.18954 ≈1.21 (a 21% increase in odds per year of age). Highly significant.
+The coefficient for Age indicates that each one-unit increase in age, increases the log-odds of purchasing by 0.18954, holding Gender constant. Older individuals are much more likely to purchase.
+```{r}
+#Age coefficient
+beta_age <- 0.18954
+
+#Convert coefficient into log odds ratio (log odds increase per one unit increase)
+odds_ratio <- exp(beta_age)
+odds_ratio
+```
+
+A 21% increase in log odds per year of age. Highly significant.
 
 Much lower residual deviance (336.14) indicates better fit. Suggests age greatly improves model fit.
 
@@ -616,17 +638,20 @@ data$logit <- predict(model_3, type = "link")
 data %>% 
 ggplot(aes(age, logit))+
   geom_point(size = 0.5, alpha = 0.5) +
-  geom_smooth(method = "glm") + 
+  geom_smooth(method = "loess") + 
   theme_bw()
 ```
+As can be seen, the linearity of age to log odds is relatively  constant, Which means that age has a relatively consistent influence on the log odds of purchasing.
 
 ```{r}
 data %>% 
 ggplot(aes(estimated_salary, logit))+
   geom_point(size = 0.5, alpha = 0.5) +
-  geom_smooth(method = "glm") + 
+  geom_smooth(method = "loess") + 
   theme_bw()
 ```
+As can be seen, the linearity of estimated_salary to log odds is relatively constant, Which means that salary has a relatively consistent influence on the log odds of purchasing.
+
 
 ```{r}
 data %>% 
