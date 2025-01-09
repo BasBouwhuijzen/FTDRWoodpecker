@@ -614,7 +614,7 @@ data$logit <- predict(model_3, type = "link")
 
 ```{r}
 data %>% 
-ggplot(aes(Age, logit))+
+ggplot(aes(age, logit))+
   geom_point(size = 0.5, alpha = 0.5) +
   geom_smooth(method = "glm") + 
   theme_bw()
@@ -622,7 +622,7 @@ ggplot(aes(Age, logit))+
 
 ```{r}
 data %>% 
-ggplot(aes(EstimatedSalary, logit))+
+ggplot(aes(estimated_salary, logit))+
   geom_point(size = 0.5, alpha = 0.5) +
   geom_smooth(method = "glm") + 
   theme_bw()
@@ -630,9 +630,17 @@ ggplot(aes(EstimatedSalary, logit))+
 
 ```{r}
 data %>% 
-ggplot(aes(Gender, logit))+
+ggplot(aes(gender, logit))+
   geom_point(size = 0.5, alpha = 0.5) +
   geom_smooth(method = "glm") + 
   theme_bw()
 ```
 
+```{r}
+VIF(model_3)
+```
+
+```{r}
+plot(model_3, which = c(4,5))
+```
+As can be seen, there are no points that fall outside of the the dashed lines (Cook's distance), hence there are no outliers that are influential. These would need to be treated or reported.
