@@ -309,7 +309,7 @@ levels(data$purchased)
 
 ```{r}
 # Show summary table
-(v1_table <- summary_table_cat(data, 
+(v2_table <- summary_table_cat(data, 
                                variable = "purchased")
 )
 ```
@@ -318,7 +318,7 @@ levels(data$purchased)
 
 ```{r}
 # Show bar plot
-(v1_plot <- ggplot(data) +
+(v2_plot <- ggplot(data) +
   geom_bar(aes(x = purchased, fill = purchased)) +
   scale_fill_manual(values = c("No" = "tomato", 
                                "Yes" = "lightgreen")) +
