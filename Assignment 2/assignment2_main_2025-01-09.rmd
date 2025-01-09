@@ -19,11 +19,11 @@ knitr::opts_chunk$set(echo = TRUE, warning = FALSE)
 
 # Introduction
 
-@
+For the second assignment we chose a new dataset that will hopefully give us better regression results. We are using a dataset called Customer Behavior from Kaggle. The data represents details about 400 clients of a company including the unique ID, the gender, the age of the customer, the salary, and the information regarding the buying decision - whether the customer decided to buy specific products or not. This dataset contains data on a new unknown product as part of a market assessment. We have a target variable `purchased` with values 0 or 1 (respectively no, and yes) indicating if the product was purchased by the customer. The other variables are `gender`, `age`, and `estimated_salary`. We will use these to predict whether the product was purchased. The `gender` variable has two values in our dataset: male and female. The `age` variable is a continuous numeric value. The `estimated_salary` is a value filled in by the customer with increments of 1000.
 
 ## Research Question
 
-@
+“What variables are the best predictors to whether the product was purchased or not?”
 
 # Preperation
  
@@ -37,10 +37,6 @@ library(kableExtra)   # For fancy tables
 
 library(lmtest)       # Assumption Checks
 library(regclass)     # Assumption Checks
-library(car)
-
-library(pROC)         # Prediction
-library(caret)        
 ```
 
 ## Read data
@@ -80,6 +76,8 @@ sum(duplicated(data$user_id))
 
 ## Missing values
 
+The data was checked for missing values. No missing values were present.
+
 ```{r}
 # Show count of NA values
 data %>%
@@ -92,6 +90,8 @@ data %>%
 ```
 
 ## Convert to factor
+
+The categorical variables (`gender` and `purchased`) were converted to factor data types.
 
 ```{r}
 # Convert variables to factor types
@@ -114,12 +114,7 @@ table(data$gender)
 table(data$purchased)
 ```
 
-## Individual variable inspection
-
-```{r}
-# Store data before outlier removal for later comparison
-data_pre_outlier_removal <- data
-```
+## Variable inspection
 
 ### Functions
 
@@ -367,6 +362,10 @@ summary_table_nums(data, c("age",
 )
 ```
 
+### General description
+
+After plotting all the predictor variables there were no unrealistic or unnatural values discovered. Furthermore, there were also no (theoretical) outliers present in the dataset. Since the dataset we are working with was flagged as 'clean', this was expected. This means that the dataset did not have to be modified in any way to be able to continue performing logistic regression.
+
 # Logistic Regression
 
 ## Functions
@@ -460,10 +459,11 @@ model_null <- glm(purchased ~ 1,
                   family = binomial)
 summary(model_null)
 ```
+
 Null model intercept of -0.5862 converts to 35.75% purchasing probability. Found by converting the exponential of the log-odds to statistical odds.
 As it is the null model, highly significant and strong prediction with outcome.
 
-### Model 1: Gender as predictor
+### Model 1: gender
 
 ```{r model-1}
 # Logistic regression with Gender as the sole predictor
@@ -473,6 +473,7 @@ model_1 <- glm(purchased ~
                family = binomial)
 summary(model_1)
 ```
+
 Here, Gender: 0 is assumed as "Female", the reference category. The intercept for that category is -0.5004. 37.50% purchasing probability
 
 For GenderMale, the "Male" category, the coefficent is -0.1775. Being male reduces the log-odds of purchasing by 0.1775. Lower probability of purchasing compared to being female. The P-value is 0.395858, which is not statistically significant. Therefore Gender does not significantly affect the purchasing probability in this model.
@@ -483,7 +484,8 @@ Null deviance is 512.7, the same as the null model. Residual deviance is slightl
 
 The AIC is 1 point higher than the null model's AIC, which suggests it is a worse model in terms of fit + complexity. The slightly lower residual deviance does not outweigh the penalty for adding the extra parameter.
 
-### Model 2: Gender + Age
+### Model 2: gender + age
+
 ```{r model-2}
 # Logistic regression with Gender and Age as predictors
 model_2 <- glm(purchased ~ 
@@ -493,6 +495,7 @@ model_2 <- glm(purchased ~
                family = binomial)
 summary(model_2)
 ```
+
 Intercept of -8.11537, low probability of purchase, when age is 0. The z and p values determine the intercept to be highly statistically significant.
 
 GenderMale indicates that being male increases the log-odds of purchasing by 0.09468 compared to females, holding Age constant. However, this effect is not statistically significant.
@@ -505,7 +508,8 @@ The AIC is much lower than both the null model (523.57) and Model 1 (524.85).
 
 The addition of Age significantly improves the model's explanatory power while justifying the slight increase in complexity by 1 parameter.
 
-### Model 3: Gender + Age + Estimated Salary
+### Model 3: gender + age + estimated_salary
+
 ```{r model-3}
 # Logistic regression with all predictors
 model_3 <- glm(purchased ~ 
@@ -516,6 +520,7 @@ model_3 <- glm(purchased ~
                family = binomial)
 summary(model_3)
 ```
+
 Intercept is at -12.78, when all predictors are at baseline (Gender is Female, Age and EstimatedSalary are both 0). Highly statistically significant, according to the p and z values.
 
 The coefficient for GenderMale suggests that being male increases the log-odds of purchase by 0.3338, while Age and EstimatedSalary remain constant. However, it is a small effect and not statistically significant (p-value: 0.274).
@@ -526,7 +531,25 @@ The coefficient for EstimatedSalary suggests that for every unit increase in sal
 
 The residual deviance has dropped significantly compared to all other models. Indicating that EstimatedSalary provides great improvement in model fit.
 
+### Model 4: age + estimated_salary * gender
+
+The results indicate EstimatedSalary to increase the log-odds of purchase significantly. In model 4 it was checked whether this effect was moderated by Gender. 
+
+```{r}
+model_4 <- glm(purchased ~ 
+                 age + 
+                 estimated_salary * gender, 
+               data = data, 
+               family = binomial)
+
+summary(model_4)
+```
+
+The results show a non-significant interaction effect, indicating that the effect of EstimatedSalary on the log-odds of purchase is consistent across levels of Gender. 
+
 ### Comparing Model Fit
+
+Model 3 is the best fit, with a significantly lower AIC value. The addition of Age and EstimatedSalary significantly improves the model fit.
 
 ```{r}
 # Comparing model to null model
@@ -537,25 +560,11 @@ compare_models(data,
               model_null,
               model_1,
               model_2,
-              model_3)
+              model_3,
+              model_4)
 ```
 
-```{r model-comparison}
-# Compare models using AIC
-model_comparison <- tibble(
-  Model = c("Null Model", "Model 1", "Model 2", "Model 3"),
-  AIC = c(AIC(model_null), AIC(model_1), AIC(model_2), AIC(model_3))
-)
-model_comparison <- model_comparison %>%
-  arrange(AIC)  # Sort models by AIC
-
-# Display Model Comparison Table
-print(model_comparison)
-```
-
-Model 3 is the best fit, with a significantly lower AIC value. The addition of Age and EstimatedSalary significantly improves the model fit.
-
-## Assumptions (Model 3)
+## Assumptions
 
 ### Sufficient sample size
 
@@ -587,7 +596,7 @@ Model 3 is the best fit, with a significantly lower AIC value. The addition of A
 
 ```{r}
 # Check if sample size is sufficient
-if (sample_size >= n) {
+if (sample_size > n) {
   result <- "Sample size is sufficient"
 } else {
   result <- "Sample size is not sufficient"
@@ -622,6 +631,63 @@ gvif_table %>%
   kable_classic(latex_options = c("striped"), full_width = TRUE)
 ```
 
-### A3
+### Linearity
+
+```{r}
+data$logit <- predict(model_3, type = "link")
+```
+
+As can be seen, the linearity of age to log odds is relatively  constant, Which means that age has a relatively consistent influence on the log odds of purchasing.
+
+```{r}
+data %>% 
+ggplot(aes(age, logit))+
+  geom_point(size = 0.5, alpha = 0.5) +
+  geom_smooth(method = "loess") + 
+  theme_bw()
+```
+
+As can be seen, the linearity of estimated_salary to log odds is relatively constant, Which means that salary has a relatively consistent influence on the log odds of purchasing.
+
+```{r}
+data %>% 
+ggplot(aes(estimated_salary, logit))+
+  geom_point(size = 0.5, alpha = 0.5) +
+  geom_smooth(method = "loess") + 
+  theme_bw()
+```
+
+As can be seen, there are no points that fall outside of the the dashed lines (Cook's distance), hence there are no outliers that are influential. These would need to be treated or reported.
+
+```{r}
+plot(model_3, which = c(4,5))
+```
+
+### Binomially distribution 
+
+The outcome is independently and identically binomially distributed. The bar plot shows there are two outcomes for purchased, so the outcome meets the outcome of a binomial distribution. 257 participants did not buy the product and 143 did. 
+
+```{r}
+data %>% 
+  ggplot(aes(x = purchased, fill = purchased)) +
+  geom_bar() +
+  labs(x = "purchased",
+       y = "Count",
+       title = "Distribution of the outcome variable") +
+  theme_bw()
+
+levels(data$purchased)
+table(data$purchased)
+```
+
+### Residual Clustering.
+
+We didn't expect residual clustering, because the only variables in the dataset are whether or not a product is purchased, gender and people's estimated salary. There is no reason to believe that there were other variables that could have influenced the variation among the groups, at least no other variables that were measured. 
+
+# Predicted probabilities
+
+## Comparison
+
+
 
 ## Conclusion
