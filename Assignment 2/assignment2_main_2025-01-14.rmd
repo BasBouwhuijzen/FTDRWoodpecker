@@ -1,7 +1,7 @@
 ---
 title: "Assignment 2"
-subtitle: "Fundamental Techniques in Data Science with R"
-author: "Judith van der Wolf (4661672) Jesse Nieuwkoop (1689959) Bas Bouwhuijzen (2130616) Jay de Jager (6990703)"
+author: Judith van der Wolf (4661672) Jesse Nieuwkoop (1689959) Bas Bouwhuijzen (2130616)
+  Jay de Jager (6990703)
 date: "06-01-2025"
 output:
   html_document:
@@ -11,6 +11,10 @@ output:
       collapsed: false
       expand: 3
     df_print: paged
+  pdf_document:
+    toc: true
+    toc_depth: '4'
+subtitle: Fundamental Techniques in Data Science with R
 ---
 
 ```{r setup, include = FALSE}
@@ -445,53 +449,42 @@ compare_models <- function(data, response_var, compare_with_first = FALSE, model
   # Return fit measures
   return(fit_measures)
 }
-
-
 ```
 
 ## Models
 
+*Note that for models 1_1, 1_2, and 1_3, the fit measures are compared to the null model. These fit measure comparisons can be found right after the interpretation of model 1_3 and before the interpretation of model 2.*
+
+*However, the fit measures of model 2 are compared to the fit measures of model 1_2, and the fit measures of model 3 are compared to the fit measures of model 2. These fit measure comparisons can be found right after the interpretation of model 3.*
+
 ### Null Model
-Null model intercept of -0.5862.
-```{r}
-x <- -0.5862
-probability <- exp(x)
-print(probability)
-```
 
 Which converts to 55.65% purchasing probability. Found by converting the exponential of the log-odds to statistical odds.
 As it is the null model, highly significant and strong prediction with outcome.
 
-```{r null-model}
+```{r}
 # Define the null model
 model_null <- glm(purchased ~ 1,
                   data = data,
                   family = binomial)
 
-# Model summary
+# Model summary and log-odds
 summary(model_null)
+cat("Log-odds of the coefficients: \n\n")
 exp(coef(model_null))
 ```
 
 ### Model 1.1: gender
 
-Here, Gender: 0 is assumed as "Female", the reference category. The intercept for that category is -0.5004.
-```{r}
-x <- -0.5004
-probability <- exp(x)
-print(probability)
-```
-Which converts to 60.65% purchasing probability.
+Here, Gender: 0 is assumed as "Female", the reference category. The log-odds of product purchase for female is -0.500 and the odds are 0.606. 
 
-For GenderMale, the "Male" category, the coefficent is -0.1775. Being male reduces the log-odds of purchasing by 0.1775. Lower probability of purchasing compared to being female. The P-value is 0.395858, which is not statistically significant. Therefore Gender does not significantly affect the purchasing probability in this model.
+The log-odds of survival for men is -0.178 lower than for women. The odds of product purchase for men is 0.837, or 17% lower than females. 
 
-Model Fit:
+**Revised**
 
-Null deviance is 512.7, the same as the null model. Residual deviance is slightly lower, but minimal.
+The reference category is "Female," with a log-odds of `purchased` of **-0.500** and corresponding odds of **0.606**, indicating that women are less likely to purchase the product. For men, the log-odds are **0.1775** lower than for women, with odds of **0.837** (approximately **17% lower than women**). However, this difference is not statistically significant ($p = 0.396$), suggesting that `gender` is not a meaningful predictor of product purchase in this dataset.
 
-The AIC is 1 point higher than the null model's AIC, which suggests it is a worse model in terms of fit + complexity. The slightly lower residual deviance does not outweigh the penalty for adding the extra parameter.
-
-BIC of 532.8339 is higher than BIC of null model. So null model is a better fit.
+The null deviance (**521.57**) and slightly lower residual deviance (**520.85**) indicate minimal improvement in fit, and the higher AIC (**524.85**) and BIC (**532.83**) further suggest that the null model is a better fit overall. The residual deviance for the gender model (**0.722**) is slightly lower than the null deviance, but this difference is not significant ($p = 0.395$), further supporting that adding gender does not meaningfully improve the model's fit. Thus, adding `gender` as a predictor does not meaningfully enhance the model's performance.
 
 ```{r}
 # Logistic regression with Gender as the sole predictor
@@ -500,12 +493,22 @@ model_1.1 <- glm(purchased ~
                data = data, 
                family = binomial)
 
-# Model summary
+# Model summary and log-odds
 summary(model_1.1)
+cat("Log-odds of the coefficients: \n\n")
 exp(coef(model_1.1))
 ```
 
 ### Model 1.2: age
+
+The log-odds for product purchase for people aged 0 is -8.044 and the odds are 0.000
+For every increase in age of one year, the log-odds of product purchase increase by 0.189, meaning that as age increases the chances of product purchase increases. The odds of product purchase are 1.208 meaning that each additional year of age increases the odds of product purchase by 20.8%, which is statistically significant ($p < .01$)
+
+**Revised**
+
+The intercept (**-8.044**) represents the log-odds of product purchase for individuals aged 0, with corresponding odds close to 0 (**0.00032**), which is effectively negligible. For every additional year of age, the log-odds of product purchase increase by **0.189**, indicating that older individuals are more likely to purchase the product. The odds of purchase increase by a factor of **1.208** for each additional year, meaning a 20.8% increase in the likelihood of purchase per year of age. This relationship is statistically significant ($p < 0.01$), suggesting that age is a strong predictor of product purchase.
+
+The model fit comparison shows that adding age as a predictor (Model 1.2) significantly improves the model fit compared to the null model. Model 1.2 has a much lower AIC (**340.26**) and BIC (**348.24**) compared to the null model's AIC (**523.57**) and BIC (**527.56**). The residual deviance decreases substantially by **185.31**, and the difference is statistically significant ($p < 0.01)$. These results indicate that age is a meaningful predictor, providing a significant improvement in model performance.
 
 ```{r}
 # Logistic regression with Gender as the sole predictor
@@ -514,12 +517,22 @@ model_1.2 <- glm(purchased ~
                data = data, 
                family = binomial)
 
-# Model summary
+# Model summary and log-odds
 summary(model_1.2)
+cat("Log-odds of the coefficients: \n\n")
 exp(coef(model_1.2))
 ```
 
 ### Model 1.3: estimated_salary
+
+The log-odds for product purchase for people with an estimated salary 0 is -8.044 and the odds are -2.323
+For every increase in estimated salary per dollar the log-odds of product purchase increase 0.00002, meaning that as estimated salary increases the chances of product purchase increases. The odds of product purchase are 1.00002 meaning that each additional dollar increases the odds of product purchase by 0.002%, which is statistically significant ($p$ < .01)
+
+**Revised**
+
+The intercept (**-2.323**) represents the log-odds of product purchase for individuals with an estimated salary of 0, with corresponding odds of approximately **0.098**, indicating that the likelihood of purchase is very low at this salary level. For every additional dollar increase in estimated salary, the log-odds of product purchase increase by **0.00002**, suggesting that higher salaries are associated with a higher likelihood of product purchase. The odds of purchase increase by a factor of **1.00002** for each additional dollar, meaning a **0.002% increase in the likelihood of purchase per dollar of salary**, which is statistically significant ($p < 0.01$).
+
+The model fit comparison shows that adding estimated salary as a predictor (Model 1.3) significantly improves the model fit compared to the null model. Model 1.3 has a lower AIC (**471.73**) and BIC (**479.71**) compared to the null model's AIC (**523.57**) and BIC (**527.56**). The residual deviance decreases by **53.85**, and the difference is statistically significant ($p < 0.01$). These results indicate that estimated salary is a meaningful predictor of product purchase, improving the model’s performance.
 
 ```{r}
 # Logistic regression with Gender as the sole predictor
@@ -528,12 +541,15 @@ model_1.3 <- glm(purchased ~
                data = data, 
                family = binomial)
 
-# Model summary
+# Model summary and log-odds
 summary(model_1.3)
+cat("Log-odds of the coefficients: \n\n")
 exp(coef(model_1.3))
 ```
 
-In this table, model 1_1, 1_2, and 1_3 are compared to the fit of the null model.
+##### Table of fit measure comparison (Model 1.1, 1.2, 1.3 & Null Model)
+
+In the table below, model 1.1, 1.2, and 1.3 are compared to the fit of the null model.
 
 ```{r}
 # Comparing model to null model
@@ -549,6 +565,18 @@ compare_models(data,
 
 ### Model 2: age + estimated_salary
 
+The estimated log-odds for product purchase is -12.43 when estimated salary and age are held constant. The odds are 0.000004. When age increases with one year, the log-odds for product purchase is  0.234 and the odds are 1.263. This means that each additional year increases the odds of product purchase by 26.3% when controlling for estimated salary which is significant ($p$ < .01)
+
+When estimated salary increases with one dollar, the log-odds for product purchase is 0.00004 and the odds are 1.00004. This means that each additional dollar increases the odds of product purchase by 0.004% which is significant ($p$ < .01 )
+
+**Revised**
+
+The intercept (**-12.43**) represents the log-odds of product purchase when both age and estimated salary are held constant at 0, with corresponding odds of approximately **0.000004**, indicating that the likelihood of purchase is extremely low at this baseline. When age increases by one year, the log-odds of product purchase increase by **0.234**, and the odds increase by a factor of **1.263**, meaning a **26.3% increase in the likelihood of purchase per year of age** while controlling for estimated salary. This relationship is statistically significant ($p < 0.01$).
+
+When estimated salary increases by one dollar, the log-odds of product purchase increase by **0.00004**, and the odds increase by a factor of **1.00004**, meaning a **0.004% increase in the likelihood of purchase per dollar of salary** while controlling for age. This relationship is also statistically significant ($p < 0.01$).
+
+The model fit comparison shows that adding both age and estimated salary as predictors (Model 2) significantly improves the model fit compared to Model 1.2 (which only includes age). Model 2 has a lower AIC (**283.05**) and BIC (**295.03**) compared to Model 1.2’s AIC (**340.26**) and BIC (**348.24**). The residual deviance decreases by **59.21**, and the difference is statistically significant ($p < 0.01$). These results indicate that the inclusion of estimated salary as a predictor further improves the model’s performance, suggesting that both age and estimated salary together are meaningful predictors of product purchase.
+
 ```{r}
 # Logistic regression with Gender as the sole predictor
 model_2 <- glm(purchased ~ 
@@ -557,16 +585,22 @@ model_2 <- glm(purchased ~
                data = data, 
                family = binomial)
 
-# Model summary
+# Model summary and log-odds
 summary(model_2)
+cat("Log-odds of the coefficients: \n\n")
 exp(coef(model_2))
 ```
 
 ### Model 3: age * estimated_salary
 
-The results indicate EstimatedSalary to increase the log-odds of purchase significantly. In model 4 it was checked whether this effect was moderated by Gender. 
+When adding an interaction to the model between age and salary the results show that there is a significant interaction effect between age and estimated salary ($p$ < .01), which suggests that the odds of product purchase and the relation with estimated salary depend on age and the odds of product purchase and the relation with age depend on estimated salary. The odds of the interaction effect are 0.9999939, so for every one-unit increase in both estimated salary and age, the odds of product purchase decreases by approximately 0.00061%. 
+The interaction effect between `age` and `estimated_salary` is significant, which suggests that the slopes for different ages and estimated salaries is significantly different.
 
-The results show a non-significant interaction effect, indicating that the effect of EstimatedSalary on the log-odds of purchase is consistent across levels of Gender.
+**Revised**
+
+Adding an interaction term between age and estimated salary reveals a significant interaction effect ($p < 0.01$), indicating that the relationship between estimated salary and the odds of product purchase depends on age, and vice versa. This suggests that the effect of estimated salary on product purchase is not constant across all ages and that the effect of age on product purchase varies with estimated salary. The odds of the interaction effect are **0.9999939**, meaning that for every one-unit increase in both estimated salary and age, the odds of product purchase decrease by approximately **0.00061%**. 
+
+The model fit comparison shows that adding the interaction term (Model 3) significantly improves the model fit compared to Model 2 (which includes only main effects). Model 3 has a much lower AIC (**221.57**) and BIC (**237.54**) compared to Model 2’s AIC (**283.05**) and BIC (**295.03**). The residual deviance decreases by **63.48** compared to Model 2, and the difference is statistically significant ($p < 0.01$). This reduction in deviance indicates that the interaction term captures additional variability in product purchase behavior that is not explained by the main effects alone. These results highlight that the interaction between `age` and `estimated_salary` is a meaningful predictor, further improving the model's explanatory power.
 
 ```{r}
 model_3 <- glm(purchased ~ 
@@ -576,12 +610,13 @@ model_3 <- glm(purchased ~
 
 # Model summary and log-odds
 summary(model_3)
+cat("Log-odds of the coefficients: \n\n")
 exp(coef(model_3))
 ```
 
-### Comparing Model Fit
+##### Table of fit measure comparison (Model 1.2, 2 & 3)
 
-Model 3 is the best fit, with a significantly lower AIC value. The addition of Age and EstimatedSalary significantly improves the model fit.
+In the table below, each model is compared to the fit measures of the model before. So model 2 is compared to model 1.2, and model 3 is compared to model 2.
 
 ```{r}
 # Comparing model to null model
@@ -593,6 +628,10 @@ compare_models(data,
               model_2,
               model_3)
 ```
+
+### Final Model
+
+Model 3 will be selected as the final model because it demonstrates the best fit, with the lowest AIC and BIC among the compared models. Additionally, the significant reduction in residual deviance compared to Model 2 indicates that the interaction term meaningfully improves the model's explanatory power. This makes Model 3 the most appropriate choice for capturing the relationship between age, estimated salary, and product purchase.
 
 ## Assumptions
 
@@ -618,17 +657,18 @@ As can be seen, the linearity of estimated_salary to log odds is relatively cons
 data %>% 
 ggplot(aes(estimated_salary, logit))+
   geom_point(size = 0.5, alpha = 0.5) +
-  geom_smooth(method = "loess") + 
+  geom_smooth(formula = 'y ~ x',
+              method = "loess") + 
   theme_bw()
 ```
 
 ### A2: Predictor Matrix Rank
 
-Predictor matrix is full-rank. 
+The VIF values in this model are quite high (exceeding the threshold of 10), indicating potential multicollinearity among the predictors. However, the high VIF values are expected because the model includes an interaction term (age * estimated_salary). Interaction terms are mathematically derived from the main effects, creating strong correlations and naturally leading to inflated VIF values. While this can make interpretation of the main effects challenging, it does not necessarily invalidate the model. The interaction term remains interpretable and may provide meaningful insights into how the predictors jointly influence the outcome.
 
 ```{r}
 # Retrieve VIF values
-vif_values <- car::vif(model_3)
+vif_values <- car::vif(model_3, type = 'predictor')
 
 # Force the output into a GVIF-like structure
 gvif_table <- tibble(
@@ -737,49 +777,70 @@ data <- data %>%
 ```
 
 ```{r}
-confusionMatrix(data = data$yHat, reference = data$purchased)
+(conf <- confusionMatrix(data = data$yHat, reference = data$purchased))
+conf$byClass["F1"]
 ```
 
-1. Accuracy (0.8525 or 85.25%)
+1.    Overall Performance
 
-    Interpretation: The model correctly predicted the outcome (yes/no) 85.25% of the time. ***This is a good accuracy score, suggesting that the model performs well on the dataset.***
-    ***Comparison to Null Accuracy (0.6425 or 64.25%)***: The model’s accuracy is significantly higher than the ***null*** baseline accuracy (0.6425 or 64.25%) ***(baseline accuracy if always predicting the majority class)***, indicating that the model adds substantial predictive value.
+    -   **Accuracy:** 0.8875 (88.75%)
+        
+        This means that 88.75% of the predictions made by the model are correct. An accuracy this high generally indicates good model performance. However, given that the "No" class is more prevalent (64.25%), accuracy alone is not sufficient to evaluate the model's effectiveness, given the non-perfect balance between "Yes" and "No" classes for `purchased`.
+        
+    -   **95% Confidence Interval (CI):** (0.8524, 0.9167)
+        
+        This range represents where the true accuracy is likely to fall 95% of the time. The narrow CI indicates a reliable estimate.
+        
+    -   **No Information Rate (NIR):** 0.6425
+        
+        This is the accuracy you would get by always predicting the majority class (in this case, "No"). Since our model's accuracy is much higher than the NIR, it is performing significantly better than a naive model.
+        
+    -   **P-Value for Accuracy > NIR:** <2e-16
+        
+        This very small p-value indicates that the improvement over the NIR is statistically significant.
+        
+2. Agreement
 
-2. Kappa (0.669 or 66.9%)
+    -   Kappa: 0.7555
+    
+        Kappa accounts for chance agreement. A value of 0.75 indicates substantial agreement beyond chance, suggesting that the model makes accurate predictions consistently (Cohen, 1960).
+        
+3. Class-Specific Performance
 
-    Interpretation: Kappa measures agreement between predicted and actual values, adjusted for chance. A value of 0.66 is considered substantial agreement, suggesting a strong, reliable model (Cohen, 1960). Generally:
-        < 0.20: Poor
-        0.21–0.40: Fair
-        0.41–0.60: Moderate
-        0.61–0.80: Substantial
-        0.81–1.00: Almost perfect
+    -   Sensitivity (Recall) for 'No': 0.9105 (91.05%)
+    
+        This indicates how well the model identifies the "No" class. In this case, the sensitivity is fairly high, which means most "No" cases are correctly classified.
+        
+    -   Specificity for 'Yes': 0.8462 (84.62%)
+    
+        Specificity reflects how well the model identifies the "Yes" class. This is also strong, but slightly lower than the sensitivity.
+        
+    -   Positive Predictive Value (Precision) for 'No': 0.9141 (91.41%)
+    
+        This represents how many of the predicted "No" cases are actually "No." The high precision indicates few false positives.
+        
+    -   Negative Predictive Value for 'Yes': 0.8403 (84.03%)
+    
+        This indicates the proportion of true "Yes" cases among all predicted "Yes." It’s lower than the precision but still acceptable.
+        
+    -   Balanced Accuracy: 0.8783
+    
+        This is the average of sensitivity and specificity, providing a balanced view of model performance for both classes. It is high, indicating overall good classification performance.
+        
+    -   F1 Score: 0.91 (91.23%)
+    
+        This indicates excellent model performance, balancing both precision and recall. This suggests the model is highly effective at correctly identifying the positive class ("No") while minimizing false positives and false negatives. Such a high F1 score demonstrates the model's reliability in classification tasks.
+        
+4. McNemar's Test P-Value: 1
 
-3. Sensitivity (0.9222 or 92.22%)
+    -   A p-value of 1 suggests there is no significant difference between the prediction errors for false positives and false negatives. The model treats these types of errors similarly (McNemar, 1947).
 
-    Interpretation: This indicates the model’s ability to correctly identify positive instances (the "yes" class -> the product was purchased). High sensitivity means the model captures most of the true positives.
-
-4. Specificity (0.7273 or 72.73%)
-
-    Interpretation: Specificity measures the ability to correctly identify negative instances (the "no" class -> the product was not purchased). This value is moderate, showing some room for improvement in predicting "no" outcomes.
-
-5. Precision / Positive Predictive Value (0.8587 or 85.87%)
-
-    Interpretation: When the model predicts "yes", it is correct 85.87% of the time. High precision indicates that false positives are relatively low.
-
-6. F1 Score (0.8893 or 88.93%)
-
-    Interpretation: The F1 score is the harmonic mean of precision and recall (sensitivity), providing a balanced measure of model performance. A score near 0.89 is strong, indicating a good trade-off between precision and recall (Van Rijsbergen, 1979).
-
-7. Balanced Accuracy (0.8247 or 82.47%)
-
-    Interpretation: This is the average of sensitivity and specificity, accounting for class imbalance. It confirms the overall good performance.
-
-8. McNemar's Test p-value (0.019 or 1.9%)
-
-    Interpretation: This tests if there’s a significant difference in the prediction errors between the two classes. A low p-value (< 0.05) suggests that the model’s errors are significantly biased, indicating a potential need for further evaluation or adjustments (McNemar, 1947).
+---
 
 Strengths: High accuracy, sensitivity, and F1 score suggest excellent performance in identifying positive cases ("yes").
 Weaknesses: Specificity is lower, meaning "no" predictions are less reliable, and McNemar's p-value suggests some bias in prediction errors.
+
+---
 
 ## Conclusion
 
@@ -787,7 +848,7 @@ Weaknesses: Specificity is lower, meaning "no" predictions are less reliable, an
 
 # References
 
-    Cohen, J. (1960). A coefficient of agreement for nominal scales. Educational and Psychological Measurement, 20(1), 37–46. https://doi.org/10.1177/001316446002000104
-    van Rijsbergen, C. J. (1979). Information Retrieval (2nd ed.). Butterworths. ISBN: 978-0408709291
-    McNemar, Q. (1947). Note on the sampling error of the difference between correlated proportions or percentages. Psychometrika, 12(2), 153–157. https://doi.org/10.1007/BF02295996
+-   Cohen, J. (1960). A coefficient of agreement for nominal scales. Educational and Psychological Measurement, 20(1), 37–46. https://doi.org/10.1177/001316446002000104
+-   van Rijsbergen, C. J. (1979). Information Retrieval (2nd ed.). Butterworths. ISBN: 978-0408709291
+-   McNemar, Q. (1947). Note on the sampling error of the difference between correlated proportions or percentages. Psychometrika, 12(2), 153–157. https://doi.org/10.1007/BF02295996
     
