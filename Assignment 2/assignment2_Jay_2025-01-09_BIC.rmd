@@ -13,6 +13,15 @@ bic_null <- BIC(model_null)
 print(bic_null)
 ```
 
+Null model intercept of -0.5862.
+```{r}
+x <- -0.5862
+probability <- exp(x) / (1 + exp(x))
+print(probability)
+```
+
+Which converts to 35.75% purchasing probability. Found by converting the exponential of the log-odds to statistical odds.
+As it is the null model, highly significant and strong prediction with outcome.
 Null model intercept of -0.5862 converts to 35.75% purchasing probability. Found by converting the exponential of the log-odds to statistical odds.
 As it is the null model, highly significant and strong prediction with outcome.
 
