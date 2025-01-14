@@ -16,7 +16,7 @@ print(bic_null)
 Null model intercept of -0.5862.
 ```{r}
 x <- -0.5862
-probability <- exp(x) / (1 + exp(x))
+probability <- exp(x)
 print(probability)
 ```
 
@@ -45,7 +45,7 @@ print(bic_value)
 Here, Gender: 0 is assumed as "Female", the reference category. The intercept for that category is -0.5004.
 ```{r}
 x <- -0.5004
-probability <- exp(x) / (1 + exp(x))
+probability <- exp(x)
 print(probability)
 ```
 Which converts to 37.74% purchasing probability.
