@@ -533,7 +533,17 @@ Intercept of -8.11537, low probability of purchase, when age is 0. The z and p v
 
 GenderMale indicates that being male increases the log-odds of purchasing by 0.09468 compared to females, holding Age constant. However, this effect is not statistically significant.
 
-The coefficient for Age indicates that each one-unit increase in age increases the log-odds of purchasing by 0.18954, holding Gender constant. Older individuals are much more likely to purchase. For each additional year of age, the odds increase approximately by e^0.18954 ≈1.21 (a 21% increase in odds per year of age). Highly significant.
+The coefficient for Age indicates that each one-unit increase in age, increases the log-odds of purchasing by 0.18954, holding Gender constant. Older individuals are much more likely to purchase.
+```{r}
+#Age coefficient
+beta_age <- 0.18954
+
+#Convert coefficient into log odds ratio (log odds increase per one unit increase)
+odds_ratio <- exp(beta_age)
+odds_ratio
+```
+
+For each additional year of age, the odds increase approximately by ~21% increase in odds per year of age. Highly significant.
 
 Much lower residual deviance (336.14) indicates better fit. Suggests age greatly improves model fit.
 
