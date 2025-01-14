@@ -452,8 +452,14 @@ compare_models <- function(data, response_var, compare_with_first = FALSE, model
 ## Models
 
 ### Null Model
+Null model intercept of -0.5862.
+```{r}
+x <- -0.5862
+probability <- exp(x)
+print(probability)
+```
 
-Null model intercept of -0.5862 converts to 35.75% purchasing probability. Found by converting the exponential of the log-odds to statistical odds.
+Which converts to 55.65% purchasing probability. Found by converting the exponential of the log-odds to statistical odds.
 As it is the null model, highly significant and strong prediction with outcome.
 
 ```{r null-model}
@@ -469,7 +475,13 @@ exp(coef(model_null))
 
 ### Model 1.1: gender
 
-Here, Gender: 0 is assumed as "Female", the reference category. The intercept for that category is -0.5004. 37.50% purchasing probability
+Here, Gender: 0 is assumed as "Female", the reference category. The intercept for that category is -0.5004.
+```{r}
+x <- -0.5004
+probability <- exp(x)
+print(probability)
+```
+Which converts to 60.65% purchasing probability.
 
 For GenderMale, the "Male" category, the coefficent is -0.1775. Being male reduces the log-odds of purchasing by 0.1775. Lower probability of purchasing compared to being female. The P-value is 0.395858, which is not statistically significant. Therefore Gender does not significantly affect the purchasing probability in this model.
 
