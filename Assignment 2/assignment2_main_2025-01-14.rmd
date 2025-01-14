@@ -2,7 +2,7 @@
 title: "Assignment 2"
 author: Judith van der Wolf (4661672) Jesse Nieuwkoop (1689959) Bas Bouwhuijzen (2130616)
   Jay de Jager (6990703)
-date: "06-01-2025"
+date: "16-01-2025"
 output:
   html_document:
     toc: true
