@@ -121,7 +121,16 @@ Intercept is at -12.78, when all predictors are at baseline (Gender is Female, A
 
 The coefficient for GenderMale suggests that being male increases the log-odds of purchase by 0.3338, while Age and EstimatedSalary remain constant. However, it is a small effect and not statistically significant (p-value: 0.274).
 
-Each increase of age by 1 unit increases the log-odds of purchase by 0.2370, holding Gender and Estimated Salary constant. This corresponds to an increase of 27% in odds for each additional year of age. Age is highly statistically significant.
+Each increase of age by 1 unit increases the log-odds of purchase by 0.2370, holding Gender and Estimated Salary constant.
+```{r}
+#Age coefficient
+beta_age <- 0.2370
+
+#Convert coefficient into log odds ratio (log odds increase per one unit increase)
+odds_ratio <- exp(beta_age)
+odds_ratio
+```
+This corresponds to an increase of 27% in odds for each additional year of age. Age is highly statistically significant.
 
 The coefficient for EstimatedSalary suggests that for every unit increase in salary, the log-odds of purchase increase by 0.00003644, while Gender and Age remain constant. This is statistically significant. This effect seems small, but do not forget that it applies to every single unit of currency.
 
