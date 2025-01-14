@@ -680,6 +680,14 @@ data %>%
 levels(data$purchased)
 table(data$purchased)
 ```
+### perfect prediction 
+
+```{r}
+predicted_probs <- predict(model_3, type = "response")
+
+perfect_predictions <- predicted_probs == 0 | predicted_probs == 1
+any(perfect_predictions) 
+```
 
 ### Residual Clustering.
 
@@ -692,6 +700,7 @@ data <- data %>%
     yHat = as.factor(ifelse(piHat <= 0.5, "No", "Yes"))
   )
 ```
+
 ```{r}
 cMat <- confusionMatrix(data = data$yHat, reference = data$purchased)
 cMat$table
@@ -705,8 +714,8 @@ cMat$byClass
 ```
 1. Accuracy (0.8525 or 85.25%)
 
-    Interpretation: The model correctly predicted the outcome (yes/no) 85.25% of the time. This is a good accuracy score, suggesting that the model performs well on the dataset.
-    Comparison to Null Accuracy (0.6425 or 64.25%): The model’s accuracy is significantly higher than the null accuracy (baseline accuracy if always predicting the majority class), indicating that the model adds substantial predictive value.
+    Interpretation: The model correctly predicted the outcome (yes/no) 85.25% of the time. ***This is a good accuracy score, suggesting that the model performs well on the dataset.***
+    ***Comparison to Null Accuracy (0.6425 or 64.25%)***: The model’s accuracy is significantly higher than the ***null*** baseline accuracy (0.6425 or 64.25%) ***(baseline accuracy if always predicting the majority class)***, indicating that the model adds substantial predictive value.
 
 2. Kappa (0.669 or 66.9%)
 
@@ -719,11 +728,11 @@ cMat$byClass
 
 3. Sensitivity (0.9222 or 92.22%)
 
-    Interpretation: This indicates the model’s ability to correctly identify positive instances (the "yes" class). High sensitivity means the model captures most of the true positives.
+    Interpretation: This indicates the model’s ability to correctly identify positive instances (the "yes" class -> the product was purchased). High sensitivity means the model captures most of the true positives.
 
 4. Specificity (0.7273 or 72.73%)
 
-    Interpretation: Specificity measures the ability to correctly identify negative instances (the "no" class). This value is moderate, showing some room for improvement in predicting "no" outcomes.
+    Interpretation: Specificity measures the ability to correctly identify negative instances (the "no" class -> the product was not purchased). This value is moderate, showing some room for improvement in predicting "no" outcomes.
 
 5. Precision / Positive Predictive Value (0.8587 or 85.87%)
 
