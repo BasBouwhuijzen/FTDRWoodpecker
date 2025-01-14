@@ -1,0 +1,857 @@
+---
+title: "Assignment 2"
+subtitle: "Fundamental Techniques in Data Science with R"
+author: "Judith van der Wolf (4661672) Jesse Nieuwkoop (1689959) Bas Bouwhuijzen (2130616) Jay de Jager (6990703)"
+date: "06-01-2025"
+output:
+  html_document:
+    toc: true
+    toc_depth: 4
+    toc_float:
+      collapsed: false
+      expand: 3
+    df_print: paged
+---
+
+```{r setup, include = FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE)
+```
+
+# Introduction
+
+For the second assignment we chose a new dataset that will hopefully give us better regression results. We are using a dataset called Customer Behavior from Kaggle. The data represents details about 400 clients of a company including the unique ID, the gender, the age of the customer, the salary, and the information regarding the buying decision - whether the customer decided to buy specific products or not. This dataset contains data on a new unknown product as part of a market assessment. We have a target variable `purchased` with values 0 or 1 (respectively no, and yes) indicating if the product was purchased by the customer. The other variables are `gender`, `age`, and `estimated_salary`. We will use these to predict whether the product was purchased. The `gender` variable has two values in our dataset: male and female. The `age` variable is a continuous numeric value. The `estimated_salary` is a value filled in by the customer with increments of 1000.
+
+## Research Question
+
+“What variables are the best predictors to whether the product was purchased or not?”
+
+# Preperation
+ 
+## Libraries
+
+```{r}
+library(tidyverse)    # For data manipulation
+library(ggplot2)      # For plotting
+library(ggpubr)       # For ggplot grid arrange
+library(kableExtra)   # For fancy tables
+
+library(lmtest)       # Assumption Checks
+library(regclass)     # Assumption Checks
+library(caret)        # Assumption Checks
+```
+
+## Read data
+
+```{r}
+# Read data
+data <- read.csv("Customer_Behaviour.csv")
+
+# View data structure
+dplyr::glimpse(data)
+```
+
+# Preprocessing
+
+## Rename
+
+```{r}
+# Rename column names to snake_case format
+data <- data %>%
+  dplyr::rename(
+    user_id = User.ID,
+    gender = Gender,
+    age = Age,
+    estimated_salary = EstimatedSalary,
+    purchased = Purchased
+  )
+```
+
+## Duplicates
+
+The data was checked for duplicates in user_id, because each used_id number should be unique in the dataset. Zero duplicates were found, thus no recards were removed.
+
+```{r}
+# Show count of duplicates
+sum(duplicated(data$user_id))
+```
+
+## Missing values
+
+The data was checked for missing values. No missing values were present.
+
+```{r}
+# Show count of NA values
+data %>%
+  dplyr::summarise(across(everything(), ~ sum(is.na(.)))) %>%
+  tidyr::pivot_longer(
+    cols = everything(),
+    names_to = "Variable",
+    values_to = "NA Count"
+  )
+```
+
+## Convert to factor
+
+The categorical variables (`gender` and `purchased`) were converted to factor data types.
+
+```{r}
+# Convert variables to factor types
+data <- data %>%
+  dplyr::mutate(
+    gender = as.factor(gender),
+    purchased = factor(purchased, levels = c(0, 1), labels = c("No", "Yes"))
+  )
+```
+
+```{r}
+# View new structure
+str(data$gender)
+str(data$purchased)
+```
+
+```{r}
+# Show category distribution
+table(data$gender)
+table(data$purchased)
+```
+
+## Variable inspection
+
+### Functions
+
+#### capitalize_str()
+
+A function was created to reformat object names to fancy string formatting when creating tables or plots.
+
+```{r}
+# Function to format column name to spaced, capitalized string
+capitalize_str <- function(string) {
+  # Replace underscores with spaces and capitalize each word
+  formatted_name <- gsub("_", " ", string)
+  formatted_name <- tools::toTitleCase(formatted_name)
+  
+  # Return result
+  return(formatted_name)
+}
+```
+
+#### summary_table_cat()
+
+A function was created to efficiently display the value distribution of categorical variables.
+
+```{r}
+# Function to display comparison summary table
+summary_table_cat <- function(data1, data2 = NULL, variable, sort = "none") {
+  # Summarize data1
+  summary_data1 <- data1 %>%
+    group_by(across(all_of(variable))) %>%
+    summarise(
+      `Frequency (Before)` = n(),
+      `Percentage (Before)` = (n() / nrow(data1)) * 100
+    )
+  
+  if (!is.null(data2)) {
+    # Summarize data2 if provided
+    summary_data2 <- data2 %>%
+      group_by(across(all_of(variable))) %>%
+      summarise(
+        `Frequency (After)` = n(),
+        `Percentage (After)` = (n() / nrow(data2)) * 100
+      )
+    
+    # Merge summaries
+    result <- full_join(summary_data1, summary_data2, by = variable) %>%
+      mutate(
+        `Percentage (Before)` = sprintf("%.2f%%", `Percentage (Before)`),
+        `Percentage (After)` = sprintf("%.2f%%", `Percentage (After)`)
+      )
+    
+    # Apply sorting
+    if (sort == "asc") {
+      result <- result %>% arrange(`Frequency (Before)`)
+    } else if (sort == "desc") {
+      result <- result %>% arrange(desc(`Frequency (Before)`))
+    }
+  } else {
+    # For single dataset case
+    result <- summary_data1 %>%
+      mutate(
+        `Percentage (Before)` = sprintf("%.2f%%", `Percentage (Before)`)
+      ) %>%
+      rename(`Frequency` = `Frequency (Before)`,
+             `Percentage` = `Percentage (Before)`)
+    
+    # Apply sorting
+    if (sort == "asc") {
+      result <- result %>% arrange(Frequency)
+    } else if (sort == "desc") {
+      result <- result %>% arrange(desc(Frequency))
+    }
+  }
+  
+  # Rename the variable column
+  result <- result %>%
+    rename(!!capitalize_str(variable) := all_of(variable))
+  
+  # Display table
+  result <- result %>%
+    kbl() %>%
+    kable_classic() %>%
+    kable_styling(latex_options = c("striped"), full_width = F)
+  
+  # Return table
+  return(result)
+}
+
+```
+
+#### summary_table_nums()
+
+A function was created to efficiently display the summary descriptives of a dataset and its given continuous variables.
+
+```{r}
+# Create function to create summary table for numerical variables
+summary_table_nums <- function(data, variables) {
+  # Compile summary table
+  summary <- data.frame(
+    Mean = sapply(variables, function(var) round(mean(data[[var]]), 3)),
+    Min = sapply(variables, function(var) min(data[[var]])),
+    Median = sapply(variables, function(var) median(data[[var]])),
+    Max = sapply(variables, function(var) max(data[[var]])),
+    SD = sapply(variables, function(var) round(sd(data[[var]]), 3))
+  )
+  
+  # Temporarily rename rownames using capitalize_str
+  rownames(summary) <- sapply(variables, capitalize_str)
+  
+  # Display summary table
+  summary <- summary %>%
+    kbl() %>%
+    kable_classic(latex_options = c("striped"), full_width = TRUE)
+  
+  # Return table
+  return(summary)
+}
+```
+
+#### plot_histogram()
+
+A function was created to easily plot the distribution of a given continuous variable in a histogram.
+
+```{r}
+# Function to create a histogram
+plot_histogram <- function(data, variable, title = NULL, binwidth = NULL, bins = NULL) {
+  
+  # Compile plot
+  plot <- ggplot(data, aes(x = .data[[variable]])) +
+    geom_histogram(binwidth = binwidth, 
+                   bins = bins, 
+                   fill = "lightblue",
+                   color = "black") +
+    labs(
+      title = title,
+      x = capitalize_str(variable),
+      y = "Frequency",
+      fill = variable
+    ) +
+    theme_bw()
+  
+  # Return plot
+  return(plot)
+}
+```
+
+### Categorical variables
+
+#### 1. gender
+
+```{r}
+# Verify structure of factors
+str(data$gender)
+
+# Verify levels of factors
+levels(data$gender)
+```
+
+```{r}
+# Show summary table
+(v1_table <- summary_table_cat(data, 
+                               variable = "gender")
+)
+```
+
+##### Table of value frequency for gender
+
+```{r}
+# Show bar plot
+(v1_plot <- ggplot(data) +
+  geom_bar(aes(x = gender, fill = gender)) +
+  scale_fill_manual(values = c("Male" = "lightblue", 
+                               "Female" = "lightpink")) +
+  labs(title = "Bar Plot of Gender Distribution",
+       fill = "Gender",
+       x = "Gender",
+       y = "Frequency"
+      ) +
+  theme_bw()
+)
+```
+
+#### 2. purchased
+
+```{r}
+# Verify structure of factors
+str(data$purchased)
+
+# Verify levels of factors
+levels(data$purchased)
+```
+
+```{r}
+# Show summary table
+(v2_table <- summary_table_cat(data, 
+                               variable = "purchased")
+)
+```
+
+##### Table of value frequency for purchased
+
+```{r}
+# Show bar plot
+(v2_plot <- ggplot(data) +
+  geom_bar(aes(x = purchased, fill = purchased)) +
+  scale_fill_manual(values = c("No" = "tomato", 
+                               "Yes" = "lightgreen")) +
+  labs(title = "Bar Plot of Purchased Distribution",
+       fill = "Purchased",
+       x = "Purchased",
+       y = "Frequency"
+      ) +
+  theme_bw()
+)
+```
+
+### Continuous variables
+
+#### Table of summary descriptives for continuous variables
+
+```{r}
+summary_table_nums(data, c("age", 
+                               "estimated_salary")
+                   )
+```
+
+#### 3. age
+
+```{r}
+# Plot histogram
+(v3_plot <- plot_histogram(data, 
+                           "age", 
+                           "Distribution of Age",
+                            binwidth = 1)
+)
+```
+
+#### 4. estimated_salary
+
+```{r}
+# Plot histogram
+(v4_plot <- plot_histogram(data, 
+                           "estimated_salary", 
+                           "Distribution of Estimated Salary",
+                            binwidth = 3000)
+)
+```
+
+### General description
+
+After plotting all the predictor variables there were no unrealistic or unnatural values discovered. Furthermore, there were also no (theoretical) outliers present in the dataset. Since the dataset we are working with was flagged as 'clean', this was expected. This means that the dataset did not have to be modified in any way to be able to continue performing logistic regression.
+
+# Logistic Regression
+
+## Functions
+
+### compare_models()
+
+A function was created to efficiently compare fit measures across logistic (or linear) models.
+
+```{r}
+# Function to compare fit measures of multiple models
+compare_models <- function(data, response_var, compare_with_first = FALSE, model_type = "lm", ...) {
+  # Capture models and their names
+  models <- list(...)
+  model_names <- as.character(substitute(list(...)))[-1] # Extract model names
+  num_models <- length(models)
+  
+  # Initialize variables to store results
+  aic_vals <- numeric(num_models)
+  bic_vals <- numeric(num_models)
+  mse_vals <- if (model_type == "lm") numeric(num_models) else NULL
+  r_squared <- if (model_type == "lm") numeric(num_models) else NULL
+  deviance_rss <- c(NA, rep(NA, num_models - 1))
+  deviance_pvalue <- c(NA, rep(NA, num_models - 1))
+  
+  # Loop through models to compute fit measures
+  for (i in seq_along(models)) {
+    aic_vals[i] <- AIC(models[[i]])
+    bic_vals[i] <- BIC(models[[i]])
+    
+    if (model_type == "lm") {
+      mse_vals[i] <- mean(models[[i]]$residuals^2)
+      r_squared[i] <- summary(models[[i]])$r.squared
+    }
+    
+    # Perform ANOVA for model comparison
+    if (i > 1) {
+      if (compare_with_first) {
+        base_model <- models[[1]]
+      } else {
+        base_model <- models[[i - 1]]
+      }
+      anova_test <- anova(base_model, models[[i]], test = ifelse(model_type == "glm", "Chisq", NULL))
+      deviance_rss[i] <- if (model_type == "glm") anova_test$Deviance[2] else anova_test$RSS[2]
+      deviance_pvalue[i] <- anova_test$`Pr(>Chi)`[2]
+    }
+  }
+  
+  # Compile results into a tibble
+  fit_measures <- tibble(
+    Model = capitalize_str(model_names),
+    AIC = aic_vals,
+    BIC = bic_vals
+  )
+  
+  # Add R^2 and MSE for linear regression models
+  if (model_type == "lm") {
+    fit_measures <- fit_measures %>%
+      mutate(
+        MSE = mse_vals,
+        `R^2` = round(r_squared, 3)
+      )
+  }
+  
+  # Add deviance for both model types
+  fit_measures <- fit_measures %>%
+  mutate(
+    `Dev. RSS` = deviance_rss,
+    `Dev. p-value` = deviance_pvalue
+  )
+  
+  # Fancy kable formatting
+  fit_measures <- fit_measures %>%
+    kbl() %>%
+    kable_classic(latex_options = c("striped"), full_width = TRUE)
+  
+  # Return fit measures
+  return(fit_measures)
+}
+
+
+```
+
+## Models
+
+### Null Model
+The log-odds for whether a product is purchased is -0.586 (intercept), and the odds are 0.556. 
+```{r null-model}
+# Define the null model
+model_null <- glm(purchased ~ 1,
+                  data = data,
+                  family = binomial)
+
+# Model summary
+summary(model_null)
+
+# odds 
+exp(coef(model_null))
+```
+
+### Model 1: gender
+
+Here, Gender: 0 is assumed as "Female", the reference category. The log-odds of product purchase for female is -0.500 and the odds are are 0.606. 
+
+The log-odds of survival for men is -0.178 lower than for women. The odds of product purchase for men is 0.837, or 17% lower than females. 
+
+The log-odds of survival for men is -2.5137 lower than for women. The odds of survival for men is 0.081, or 92% lower than females, which is not statistically significant ($p$ = 0.396). 
+
+The null deviance is 512.57, the same as the null model. Residual deviance is slightly lower, but minimal. The AIC is 1 point higher than the null model's AIC, which suggests it is a worse model in terms of fit + complexity. The slightly lower residual deviance does not outweigh the penalty for adding the extra parameter.
+
+BIC of 532.8339 is higher than BIC of null model. So null model is a better fit.
+
+```{r model-1}
+# Logistic regression with Gender as the sole predictor
+model_1.1 <- glm(purchased ~ 
+                 gender, 
+               data = data, 
+               family = binomial)
+
+# Model summary
+summary(model_1.1)
+
+#odds
+exp(coef(model_1.1))
+```
+
+### Model 1.2: age
+The log-odds for product purchase for people aged 0 is -8.044 and the odds are 0.000
+For every increase in age of one year, the log-odds of product purchase increase by 0.189, meaning that as age increases the chances of product purchase increases. The odds of product purchase are 1.208 meaning that each additional year of age increases the odds of product purchase by 20.8%, which is statistically significant ($p$ < .01)
+
+```{r model-1}
+# Logistic regression with Gender as the sole predictor
+model_1.2 <- glm(purchased ~ 
+                 age, 
+               data = data, 
+               family = binomial)
+
+# Model summary
+summary(model_1.2)
+
+#odds
+exp(coef(model_1.2))
+```
+### Model 1.3: estimated salary
+The log-odds for product purchase for people with an estimated salary 0 is -8.044 and the odds are -2.323
+For every increase in estimated salary per dollar the log-odds of product purchase increase 0.00002, meaning that as estimated salary increases the chances of product purchase increases. The odds of product purchase are 1.00002 meaning that each additional dollar increases the odds of product purchase by 0.002%, which is statistically significant ($p$ < .01)
+
+```{r}
+# Logistic regression with Gender as the sole predictor
+model_1.3 <- glm(purchased ~ estimated_salary, 
+               data = data, 
+               family = binomial)
+
+# Model summary
+summary(model_1.3)
+
+#odds
+exp(coef(model_1.3))
+```
+
+### Model 2: estimated salary and age
+The estimated log-odds for product purchase is -12.43 when estimated salary and age are held constant. The odds are 0.000004. When age increases with one year, the log-odds for product purchase is  0.234 and the odds are 1.263. This means that each additional year increases the odds of product purchase by 26.3% when controlling for estimated salary which is significant ($p$ < .01)
+
+When estimated salary increases with one dollar, the log-odds for product purchase is 0.00004 and the odds are 1.00004. This means that each additional dollar increases the odds of product purchase by 0.004% which is significant ($p$ < .01 )
+
+```{r}
+# Logistic regression with Gender as the sole predictor
+model_2 <- glm(purchased ~ estimated_salary + age, 
+               data = data, 
+               family = binomial)
+
+# Model summary
+summary(model_2)
+
+#odds
+exp(coef(model_2))
+```
+
+### Model 3: estimated salary and age + interaction effect between salary and age
+
+When adding an interaction to the model between age and salary the results show that there is a significant interaction effect between age and estimated salary ($p$ < .01), which suggests that the odds of product purchase and the relation with estimated salary depend on age and the odds of product purchase and the relation with age depend on estimated salary. The odds of the interaction effect are 0.9999939, so for every one-unit increase in both estimated salary and age, the odds of product purchase decreases by approximately 0.00061%. 
+
+```{r}
+# Logistic regression with Gender as the sole predictor
+model_3 <- glm(purchased ~ estimated_salary * age, 
+               data = data, 
+               family = binomial)
+
+# Model summary
+summary(model_3)
+
+#odds
+exp(coef(model_3))
+```
+
+
+
+```{r}
+# Comparing model to null model
+compare_models(data,
+              "purchased",
+              TRUE,
+              "glm",
+              model_null,
+              model_1,
+              model_x)
+```
+
+### Model 2: gender + age
+
+Intercept of -8.11537, low probability of purchase, when age is 0. The z and p values determine the intercept to be highly statistically significant.
+
+GenderMale indicates that being male increases the log-odds of purchasing by 0.09468 compared to females, holding Age constant. However, this effect is not statistically significant.
+
+The coefficient for Age indicates that each one-unit increase in age increases the log-odds of purchasing by 0.18954, holding Gender constant. Older individuals are much more likely to purchase. For each additional year of age, the odds increase approximately by e^0.18954 ≈1.21 (a 21% increase in odds per year of age). Highly significant.
+
+Much lower residual deviance (336.14) indicates better fit. Suggests age greatly improves model fit.
+
+The AIC is much lower than both the null model (523.57) and Model 1 (524.85).
+
+The addition of Age significantly improves the model's explanatory power while justifying the slight increase in complexity by 1 parameter.
+
+```{r model-2}
+# Logistic regression with Gender and Age as predictors
+model_2 <- glm(purchased ~ 
+                 gender +
+                 age, 
+               data = data,
+               family = binomial)
+
+# Model summary
+summary(model_2)
+```
+
+### Model 3: gender + age + estimated_salary
+
+Intercept is at -12.78, when all predictors are at baseline (Gender is Female, Age and EstimatedSalary are both 0). Highly statistically significant, according to the p and z values.
+
+The coefficient for GenderMale suggests that being male increases the log-odds of purchase by 0.3338, while Age and EstimatedSalary remain constant. However, it is a small effect and not statistically significant (p-value: 0.274).
+
+Each increase of age by 1 unit increases the log-odds of purchase by 0.2370, holding Gender and Estimated Salary constant. This corresponds to an increase of 27% in odds for each additional year of age. Age is highly statistically significant.
+
+The coefficient for EstimatedSalary suggests that for every unit increase in salary, the log-odds of purchase increase by 0.00003644, while Gender and Age remain constant. This is statistically significant. This effect seems small, but do not forget that it applies to every single unit of currency.
+
+The residual deviance has dropped significantly compared to all other models. Indicating that EstimatedSalary provides great improvement in model fit.
+
+```{r model-3}
+# Logistic regression with all predictors
+model_3 <- glm(purchased ~ 
+                 gender + 
+                 age + 
+                 estimated_salary, 
+               data = data, 
+               family = binomial)
+
+# Model summary
+summary(model_3)
+```
+
+### Model 4: age + estimated_salary * gender
+
+The results indicate EstimatedSalary to increase the log-odds of purchase significantly. In model 4 it was checked whether this effect was moderated by Gender. 
+
+The results show a non-significant interaction effect, indicating that the effect of EstimatedSalary on the log-odds of purchase is consistent across levels of Gender.
+
+```{r}
+model_4 <- glm(purchased ~ 
+                 age + 
+                 estimated_salary * gender, 
+               data = data, 
+               family = binomial)
+
+summary(model_4)
+```
+
+### Comparing Model Fit
+
+Model 3 is the best fit, with a significantly lower AIC value. The addition of Age and EstimatedSalary significantly improves the model fit.
+
+```{r}
+# Comparing model to null model
+compare_models(data,
+              "purchased",
+              FALSE,
+              "glm",
+              model_null,
+              model_1,
+              model_2,
+              model_3,
+              model_4)
+```
+
+## Assumptions
+
+### A1: Linearity
+
+```{r}
+data$logit <- predict(model_3, type = "link")
+```
+
+As can be seen, the linearity of age to log odds is relatively  constant, Which means that age has a relatively consistent influence on the log odds of purchasing.
+
+```{r}
+data %>% 
+ggplot(aes(age, logit))+
+  geom_point(size = 0.5, alpha = 0.5) +
+  geom_smooth(method = "loess") + 
+  theme_bw()
+```
+
+As can be seen, the linearity of estimated_salary to log odds is relatively constant, Which means that salary has a relatively consistent influence on the log odds of purchasing.
+
+```{r}
+data %>% 
+ggplot(aes(estimated_salary, logit))+
+  geom_point(size = 0.5, alpha = 0.5) +
+  geom_smooth(method = "loess") + 
+  theme_bw()
+```
+
+### A2: Predictor Matrix Rank
+
+Predictor matrix is full-rank. 
+
+```{r}
+# Retrieve VIF values
+vif_values <- car::vif(model_3)
+
+# Force the output into a GVIF-like structure
+gvif_table <- tibble(
+  Variable = capitalize_str(names(vif_values)),
+  VIF = vif_values,
+  df = 1,
+  GVIF = (vif_values^(1 / (1 + df)))
+)
+
+# Fancy kable table formatting
+gvif_table %>%
+  kbl() %>%
+  kable_classic(latex_options = c("striped"), full_width = TRUE)
+```
+
+### A3: IID Binomial
+
+#### Binary Outcome
+
+The outcome is independently and identically binomially distributed. The bar plot shows there are two outcomes for purchased, so the outcome meets the outcome of a binomial distribution. 257 participants did not buy the product and 143 did. 
+
+```{r}
+data %>% 
+  ggplot(aes(x = purchased, fill = purchased)) +
+  geom_bar() +
+  labs(x = "purchased",
+       y = "Count",
+       title = "Distribution of the outcome variable") +
+  theme_bw()
+```
+
+```{r}
+levels(data$purchased)
+table(data$purchased)
+```
+
+#### Clustering
+
+We didn't expect residual clustering, because the only variables in the dataset are whether or not a product is purchased, gender and people's estimated salary. There is no reason to believe that there were other variables that could have influenced the variation among the groups, at least no other variables that were measured. 
+
+### Sufficient Sample Size
+
+The minimum sample size is 112. The actual sample size is 400. This means that the assumption for sufficient sample size is met.
+
+```{r}
+# Show sample size
+(sample_size <- nrow(data))
+```
+
+```{r}
+# Calculate proportion of purchased
+(purchased <- data %>%
+  count(purchased) %>%
+  mutate(prop = n / sum(n)))
+```
+```{r}
+# Return smallest proportion of negative or positive cases.
+(p <- min(purchased$prop))
+```
+
+```{r}
+# Return number of predictors (k) of final model
+(k <- length(coef(model_3)))
+```
+
+```{r}
+# Calculate the minimum number of cases (n)
+(n <- ceiling((10 * k) / p))
+```
+
+### Balanced Outcomes
+
+The assumption of balanced outcomes was met.
+
+```{r}
+# Show distribution of outcomes
+with(data, table(purchased) / length(purchased))
+```
+
+### Perfect Prediction
+
+The model does not contain perfectly separable classes, therefore the assumption of perfect prediction is met.
+
+```{r}
+predicted_probs <- predict(model_3, type = "response")
+
+perfect_predictions <- predicted_probs == 0 | predicted_probs == 1
+any(perfect_predictions) 
+```
+
+### Influential Cases
+
+As can be seen, there are no points that fall outside of the the dashed lines (Cook's distance), hence there are no outliers that are influential and therefore do not have to be treated.
+
+```{r}
+plot(model_3, which = c(4,5))
+```
+
+# Predicted Probabilities
+
+```{r}
+data <- data %>%
+  mutate(piHat = predict(model_3, type = "response"),
+    yHat = as.factor(ifelse(piHat <= 0.5, "No", "Yes"))
+  )
+```
+
+```{r}
+confusionMatrix(data = data$yHat, reference = data$purchased)
+```
+
+1. Accuracy (0.8525 or 85.25%)
+
+    Interpretation: The model correctly predicted the outcome (yes/no) 85.25% of the time. ***This is a good accuracy score, suggesting that the model performs well on the dataset.***
+    ***Comparison to Null Accuracy (0.6425 or 64.25%)***: The model’s accuracy is significantly higher than the ***null*** baseline accuracy (0.6425 or 64.25%) ***(baseline accuracy if always predicting the majority class)***, indicating that the model adds substantial predictive value.
+
+2. Kappa (0.669 or 66.9%)
+
+    Interpretation: Kappa measures agreement between predicted and actual values, adjusted for chance. A value of 0.66 is considered substantial agreement, suggesting a strong, reliable model (Cohen, 1960). Generally:
+        < 0.20: Poor
+        0.21–0.40: Fair
+        0.41–0.60: Moderate
+        0.61–0.80: Substantial
+        0.81–1.00: Almost perfect
+
+3. Sensitivity (0.9222 or 92.22%)
+
+    Interpretation: This indicates the model’s ability to correctly identify positive instances (the "yes" class -> the product was purchased). High sensitivity means the model captures most of the true positives.
+
+4. Specificity (0.7273 or 72.73%)
+
+    Interpretation: Specificity measures the ability to correctly identify negative instances (the "no" class -> the product was not purchased). This value is moderate, showing some room for improvement in predicting "no" outcomes.
+
+5. Precision / Positive Predictive Value (0.8587 or 85.87%)
+
+    Interpretation: When the model predicts "yes", it is correct 85.87% of the time. High precision indicates that false positives are relatively low.
+
+6. F1 Score (0.8893 or 88.93%)
+
+    Interpretation: The F1 score is the harmonic mean of precision and recall (sensitivity), providing a balanced measure of model performance. A score near 0.89 is strong, indicating a good trade-off between precision and recall (Van Rijsbergen, 1979).
+
+7. Balanced Accuracy (0.8247 or 82.47%)
+
+    Interpretation: This is the average of sensitivity and specificity, accounting for class imbalance. It confirms the overall good performance.
+
+8. McNemar's Test p-value (0.019 or 1.9%)
+
+    Interpretation: This tests if there’s a significant difference in the prediction errors between the two classes. A low p-value (< 0.05) suggests that the model’s errors are significantly biased, indicating a potential need for further evaluation or adjustments (McNemar, 1947).
+
+Strengths: High accuracy, sensitivity, and F1 score suggest excellent performance in identifying positive cases ("yes").
+Weaknesses: Specificity is lower, meaning "no" predictions are less reliable, and McNemar's p-value suggests some bias in prediction errors.
+
+## Conclusion
+
+
+
+# References
+
+    Cohen, J. (1960). A coefficient of agreement for nominal scales. Educational and Psychological Measurement, 20(1), 37–46. https://doi.org/10.1177/001316446002000104
+    van Rijsbergen, C. J. (1979). Information Retrieval (2nd ed.). Butterworths. ISBN: 978-0408709291
+    McNemar, Q. (1947). Note on the sampling error of the difference between correlated proportions or percentages. Psychometrika, 12(2), 153–157. https://doi.org/10.1007/BF02295996
+    
