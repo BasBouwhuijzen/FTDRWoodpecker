@@ -464,9 +464,10 @@ model_null <- glm(purchased ~ 1,
 
 # Model summary
 summary(model_null)
+exp(coef(model_null))
 ```
 
-### Model 1: gender
+### Model 1.1: gender
 
 Here, Gender: 0 is assumed as "Female", the reference category. The intercept for that category is -0.5004. 37.50% purchasing probability
 
@@ -480,29 +481,47 @@ The AIC is 1 point higher than the null model's AIC, which suggests it is a wors
 
 BIC of 532.8339 is higher than BIC of null model. So null model is a better fit.
 
-```{r model-1}
+```{r}
 # Logistic regression with Gender as the sole predictor
-model_1 <- glm(purchased ~ 
+model_1.1 <- glm(purchased ~ 
                  gender, 
                data = data, 
                family = binomial)
 
 # Model summary
-summary(model_1)
+summary(model_1.1)
+exp(coef(model_1.1))
 ```
 
-### Model X: age
+### Model 1.2: age
 
 ```{r}
 # Logistic regression with Gender as the sole predictor
-model_x <- glm(purchased ~ 
+model_1.2 <- glm(purchased ~ 
                  age, 
                data = data, 
                family = binomial)
 
 # Model summary
-summary(model_x)
+summary(model_1.2)
+exp(coef(model_1.2))
 ```
+
+### Model 1.3: estimated_salary
+
+```{r}
+# Logistic regression with Gender as the sole predictor
+model_1.3 <- glm(purchased ~ 
+                 estimated_salary, 
+               data = data, 
+               family = binomial)
+
+# Model summary
+summary(model_1.3)
+exp(coef(model_1.3))
+```
+
+In this table, model 1_1, 1_2, and 1_3 are compared to the fit of the null model.
 
 ```{r}
 # Comparing model to null model
@@ -511,84 +530,41 @@ compare_models(data,
               TRUE,
               "glm",
               model_null,
-              model_1,
-              model_x)
+              model_1.1,
+              model_1.2,
+              model_1.3)
 ```
 
-### Model 2: gender + age
+### Model 2: age + estimated_salary
 
-Intercept of -8.11537, low probability of purchase, when age is 0. The z and p values determine the intercept to be highly statistically significant.
-
-GenderMale indicates that being male increases the log-odds of purchasing by 0.09468 compared to females, holding Age constant. However, this effect is not statistically significant.
-
-The coefficient for Age indicates that each one-unit increase in age increases the log-odds of purchasing by 0.18954, holding Gender constant. Older individuals are much more likely to purchase. For each additional year of age, the odds increase approximately by e^0.18954 ≈1.21 (a 21% increase in odds per year of age). Highly significant.
-
-Much lower residual deviance (336.14) indicates better fit. Suggests age greatly improves model fit.
-
-The AIC is much lower than both the null model (523.57) and Model 1 (524.85).
-
-The addition of Age significantly improves the model's explanatory power while justifying the slight increase in complexity by 1 parameter.
-
-```{r model-2}
-# Logistic regression with Gender and Age as predictors
-model_2 <- glm(purchased ~ 
-                 gender +
-                 age, 
-               data = data,
-               family = binomial)
-
-# Model summary
-summary(model_2)
-```
-
-### Model 3: gender + age + estimated_salary
-
-Intercept is at -12.78, when all predictors are at baseline (Gender is Female, Age and EstimatedSalary are both 0). Highly statistically significant, according to the p and z values.
-
-The coefficient for GenderMale suggests that being male increases the log-odds of purchase by 0.3338, while Age and EstimatedSalary remain constant. However, it is a small effect and not statistically significant (p-value: 0.274).
-
-Each increase of age by 1 unit increases the log-odds of purchase by 0.2370, holding Gender and Estimated Salary constant.
 ```{r}
-#Age coefficient
-beta_age <- 0.2370
-
-#Convert coefficient into log odds ratio (log odds increase per one unit increase)
-odds_ratio <- exp(beta_age)
-odds_ratio
-```
-This corresponds to an increase of 27% in odds for each additional year of age. Age is highly statistically significant.
-
-The coefficient for EstimatedSalary suggests that for every unit increase in salary, the log-odds of purchase increase by 0.00003644, while Gender and Age remain constant. This is statistically significant. This effect seems small, but do not forget that it applies to every single unit of currency.
-
-The residual deviance has dropped significantly compared to all other models. Indicating that EstimatedSalary provides great improvement in model fit.
-
-```{r model-3}
-# Logistic regression with all predictors
-model_3 <- glm(purchased ~ 
-                 gender + 
-                 age + 
+# Logistic regression with Gender as the sole predictor
+model_2 <- glm(purchased ~ 
+                 age +
                  estimated_salary, 
                data = data, 
                family = binomial)
 
 # Model summary
-summary(model_3)
+summary(model_2)
+exp(coef(model_2))
 ```
 
-### Model 4: age + estimated_salary * gender
+### Model 3: age * estimated_salary
 
 The results indicate EstimatedSalary to increase the log-odds of purchase significantly. In model 4 it was checked whether this effect was moderated by Gender. 
 
 The results show a non-significant interaction effect, indicating that the effect of EstimatedSalary on the log-odds of purchase is consistent across levels of Gender.
 
 ```{r}
-model_4 <- glm(purchased ~ 
-                 age + 
-                 estimated_salary * gender, 
+model_3 <- glm(purchased ~ 
+                 age * estimated_salary, 
                data = data, 
                family = binomial)
 
-summary(model_4)
+# Model summary and log-odds
+summary(model_3)
+exp(coef(model_3))
 ```
 
 ### Comparing Model Fit
@@ -601,11 +577,9 @@ compare_models(data,
               "purchased",
               FALSE,
               "glm",
-              model_null,
-              model_1,
+              model_1.2,
               model_2,
-              model_3,
-              model_4)
+              model_3)
 ```
 
 ## Assumptions
