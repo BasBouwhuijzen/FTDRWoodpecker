@@ -42,7 +42,13 @@ bic_value <- BIC(model_1)
 print(bic_value)
 ```
 
-Here, Gender: 0 is assumed as "Female", the reference category. The intercept for that category is -0.5004. 37.50% purchasing probability
+Here, Gender: 0 is assumed as "Female", the reference category. The intercept for that category is -0.5004.
+```{r}
+x <- -0.5004
+probability <- exp(x) / (1 + exp(x))
+print(probability)
+```
+Which converts to 37.74% purchasing probability.
 
 For GenderMale, the "Male" category, the coefficent is -0.1775. Being male reduces the log-odds of purchasing by 0.1775. Lower probability of purchasing compared to being female. The P-value is 0.395858, which is not statistically significant. Therefore Gender does not significantly affect the purchasing probability in this model.
 
