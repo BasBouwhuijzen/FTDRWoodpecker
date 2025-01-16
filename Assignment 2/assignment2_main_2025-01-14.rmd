@@ -70,6 +70,15 @@ data <- data %>%
   )
 ```
 
+## Devide estimated_salary by 1000 for interpretation purposes 
+
+```{r}
+data <- data %>%
+  mutate(
+    estimated_salary = estimated_salary /1000
+  )
+```
+
 ## Duplicates
 
 The data was checked for duplicates in user_id, because each used_id number should be unique in the dataset. Zero duplicates were found, thus no recards were removed.
@@ -459,8 +468,7 @@ compare_models <- function(data, response_var, compare_with_first = FALSE, model
 
 ### Null Model
 
-Which converts to 55.65% purchasing probability. Found by converting the exponential of the log-odds to statistical odds.
-As it is the null model, highly significant and strong prediction with outcome.
+The log-odds for whether a product is purchased is -0.586 (intercept), and the odds are 0.556.
 
 ```{r}
 # Define the null model
@@ -476,13 +484,7 @@ exp(coef(model_null))
 
 ### Model 1.1: gender
 
-Here, Gender: 0 is assumed as "Female", the reference category. The log-odds of product purchase for female is -0.500 and the odds are 0.606. 
-
-The log-odds of survival for men is -0.178 lower than for women. The odds of product purchase for men is 0.837, or 17% lower than females. 
-
-**Revised**
-
-The reference category is "Female," with a log-odds of `purchased` of **-0.500** and corresponding odds of **0.606**, indicating that women are less likely to purchase the product. For men, the log-odds are **0.1775** lower than for women, with odds of **0.837** (approximately **17% lower than women**). However, this difference is not statistically significant ($p = 0.396$), suggesting that `gender` is not a meaningful predictor of product purchase in this dataset.
+The reference category is "Female," with a log-odds of `purchased` of **-0.500** and corresponding odds of **0.606**. For men, the log-odds are **0.178** lower than for women, with odds of **0.837** (approximately **17% lower than women**). However, this difference is not statistically significant ($p = 0.396$), suggesting that `gender` is not a meaningful predictor of product purchase in this dataset.
 
 The null deviance (**521.57**) and slightly lower residual deviance (**520.85**) indicate minimal improvement in fit, and the higher AIC (**524.85**) and BIC (**532.83**) further suggest that the null model is a better fit overall. The residual deviance for the gender model (**0.722**) is slightly lower than the null deviance, but this difference is not significant ($p = 0.395$), further supporting that adding gender does not meaningfully improve the model's fit. Thus, adding `gender` as a predictor does not meaningfully enhance the model's performance.
 
@@ -501,14 +503,9 @@ exp(coef(model_1.1))
 
 ### Model 1.2: age
 
-The log-odds for product purchase for people aged 0 is -8.044 and the odds are 0.000
-For every increase in age of one year, the log-odds of product purchase increase by 0.189, meaning that as age increases the chances of product purchase increases. The odds of product purchase are 1.208 meaning that each additional year of age increases the odds of product purchase by 20.8%, which is statistically significant ($p < .01$)
+The intercept (**-8.044**) represents the log-odds of product purchase for individuals aged 0, with corresponding odds close to 0 (**0.00032**), which is effectively negligible. For every additional year of age, the log-odds of product purchase increase by **0.189**, indicating that older individuals are more likely to purchase the product. The odds of purchase increase by  **1.208** for each additional year, meaning a 20.8% increase in the likelihood of purchase per year of age. This relationship is statistically significant ($p < 0.01$), suggesting that age is a strong predictor of product purchase.
 
-**Revised**
-
-The intercept (**-8.044**) represents the log-odds of product purchase for individuals aged 0, with corresponding odds close to 0 (**0.00032**), which is effectively negligible. For every additional year of age, the log-odds of product purchase increase by **0.189**, indicating that older individuals are more likely to purchase the product. The odds of purchase increase by a factor of **1.208** for each additional year, meaning a 20.8% increase in the likelihood of purchase per year of age. This relationship is statistically significant ($p < 0.01$), suggesting that age is a strong predictor of product purchase.
-
-The model fit comparison shows that adding age as a predictor (Model 1.2) significantly improves the model fit compared to the null model. Model 1.2 has a much lower AIC (**340.26**) and BIC (**348.24**) compared to the null model's AIC (**523.57**) and BIC (**527.56**). The residual deviance decreases substantially by **185.31**, and the difference is statistically significant ($p < 0.01)$. These results indicate that age is a meaningful predictor, providing a significant improvement in model performance.
+The model fit comparison shows that adding age as a predictor (Model 1.2) significantly improves the model fit compared to the null model. Model 1.2 has a much lower AIC (**340.26**) and BIC (**348.24**) compared to the null model's AIC (**523.57**) and BIC (**527.56**). The residual deviance decreases substantially by **185.31**, and the difference is statistically significant ($p < 0.01$). These results indicate that age is a meaningful predictor, providing a significant improvement in model performance.
 
 ```{r}
 # Logistic regression with Gender as the sole predictor
@@ -525,12 +522,7 @@ exp(coef(model_1.2))
 
 ### Model 1.3: estimated_salary
 
-The log-odds for product purchase for people with an estimated salary 0 is -8.044 and the odds are -2.323
-For every increase in estimated salary per dollar the log-odds of product purchase increase 0.00002, meaning that as estimated salary increases the chances of product purchase increases. The odds of product purchase are 1.00002 meaning that each additional dollar increases the odds of product purchase by 0.002%, which is statistically significant ($p$ < .01)
-
-**Revised**
-
-The intercept (**-2.323**) represents the log-odds of product purchase for individuals with an estimated salary of 0, with corresponding odds of approximately **0.098**, indicating that the likelihood of purchase is very low at this salary level. For every additional dollar increase in estimated salary, the log-odds of product purchase increase by **0.00002**, suggesting that higher salaries are associated with a higher likelihood of product purchase. The odds of purchase increase by a factor of **1.00002** for each additional dollar, meaning a **0.002% increase in the likelihood of purchase per dollar of salary**, which is statistically significant ($p < 0.01$).
+The intercept (**-2.323**) represents the log-odds of product purchase for individuals with an estimated salary of 0, with corresponding odds of approximately **0.098**, indicating that the likelihood of purchase is very low at this salary level. For every one unit increase in estimated salary (1000 dollars), the log-odds of product purchase increase by **0.024**, suggesting that higher salaries are associated with a higher likelihood of product purchase. The odds of purchase increase by a factor of **1.024** for each additional unit, meaning a **2.4% increase in the likelihood of purchase per 1000 dollars increase of salary**, which is statistically significant ($p < 0.01$).
 
 The model fit comparison shows that adding estimated salary as a predictor (Model 1.3) significantly improves the model fit compared to the null model. Model 1.3 has a lower AIC (**471.73**) and BIC (**479.71**) compared to the null model's AIC (**523.57**) and BIC (**527.56**). The residual deviance decreases by **53.85**, and the difference is statistically significant ($p < 0.01$). These results indicate that estimated salary is a meaningful predictor of product purchase, improving the model’s performance.
 
@@ -565,15 +557,9 @@ compare_models(data,
 
 ### Model 2: age + estimated_salary
 
-The estimated log-odds for product purchase is -12.43 when estimated salary and age are held constant. The odds are 0.000004. When age increases with one year, the log-odds for product purchase is  0.234 and the odds are 1.263. This means that each additional year increases the odds of product purchase by 26.3% when controlling for estimated salary which is significant ($p$ < .01)
+The intercept (**-12.43**) represents the log-odds of product purchase when both age and estimated salary are held constant at 0, with corresponding odds of approximately **0**, indicating that the likelihood of purchase is extremely low at this baseline. When age increases by one year, the log-odds of product purchase increase by **0.234**, and the odds increase by a factor of **1.263**, meaning a **26.3% increase in the likelihood of purchase per year of age** while controlling for estimated salary. This relationship is statistically significant ($p < 0.01$).
 
-When estimated salary increases with one dollar, the log-odds for product purchase is 0.00004 and the odds are 1.00004. This means that each additional dollar increases the odds of product purchase by 0.004% which is significant ($p$ < .01 )
-
-**Revised**
-
-The intercept (**-12.43**) represents the log-odds of product purchase when both age and estimated salary are held constant at 0, with corresponding odds of approximately **0.000004**, indicating that the likelihood of purchase is extremely low at this baseline. When age increases by one year, the log-odds of product purchase increase by **0.234**, and the odds increase by a factor of **1.263**, meaning a **26.3% increase in the likelihood of purchase per year of age** while controlling for estimated salary. This relationship is statistically significant ($p < 0.01$).
-
-When estimated salary increases by one dollar, the log-odds of product purchase increase by **0.00004**, and the odds increase by a factor of **1.00004**, meaning a **0.004% increase in the likelihood of purchase per dollar of salary** while controlling for age. This relationship is also statistically significant ($p < 0.01$).
+When estimated salary increases by one unit, the log-odds of product purchase increase by **0.036**, and the odds increase by **1.037**, meaning a **3.7% increase in the likelihood of purchase per unit of salary** while controlling for age. This relationship is also statistically significant ($p < 0.01$).
 
 The model fit comparison shows that adding both age and estimated salary as predictors (Model 2) significantly improves the model fit compared to Model 1.2 (which only includes age). Model 2 has a lower AIC (**283.05**) and BIC (**295.03**) compared to Model 1.2’s AIC (**340.26**) and BIC (**348.24**). The residual deviance decreases by **59.21**, and the difference is statistically significant ($p < 0.01$). These results indicate that the inclusion of estimated salary as a predictor further improves the model’s performance, suggesting that both age and estimated salary together are meaningful predictors of product purchase.
 
@@ -593,14 +579,9 @@ exp(coef(model_2))
 
 ### Model 3: age * estimated_salary
 
-When adding an interaction to the model between age and salary the results show that there is a significant interaction effect between age and estimated salary ($p$ < .01), which suggests that the odds of product purchase and the relation with estimated salary depend on age and the odds of product purchase and the relation with age depend on estimated salary. The odds of the interaction effect are 0.9999939, so for every one-unit increase in both estimated salary and age, the odds of product purchase decreases by approximately 0.00061%. 
-The interaction effect between `age` and `estimated_salary` is significant, which suggests that the slopes for different ages and estimated salaries is significantly different.
+Adding an interaction term between age and estimated salary reveals a significant interaction effect ($p < 0.01$), indicating that the relationship between estimated salary and the odds of product purchase depends on age, and vice versa. This suggests that the effect of estimated salary on product purchase is not constant across all ages and that the effect of age on product purchase varies with estimated salary. The odds of the interaction effect are close to 1, meaning that for every one-unit increase in both estimated salary and age, the odds of product purchase slightly decreases by approximately **0.00061%**. This slight decrease may be attributed to differences in the relationship between age, estimated salary, and product purchase behavior. For instance, younger individuals with higher incomes might spend more on products compared to older individuals with similar earnings. 
 
-**Revised**
-
-Adding an interaction term between age and estimated salary reveals a significant interaction effect ($p < 0.01$), indicating that the relationship between estimated salary and the odds of product purchase depends on age, and vice versa. This suggests that the effect of estimated salary on product purchase is not constant across all ages and that the effect of age on product purchase varies with estimated salary. The odds of the interaction effect are **0.9999939**, meaning that for every one-unit increase in both estimated salary and age, the odds of product purchase decrease by approximately **0.00061%**. 
-
-The model fit comparison shows that adding the interaction term (Model 3) significantly improves the model fit compared to Model 2 (which includes only main effects). Model 3 has a much lower AIC (**221.57**) and BIC (**237.54**) compared to Model 2’s AIC (**283.05**) and BIC (**295.03**). The residual deviance decreases by **63.48** compared to Model 2, and the difference is statistically significant ($p < 0.01$). This reduction in deviance indicates that the interaction term captures additional variability in product purchase behavior that is not explained by the main effects alone. These results highlight that the interaction between `age` and `estimated_salary` is a meaningful predictor, further improving the model's explanatory power.
+The model fit comparison shows that adding the interaction term (Model 3) significantly improves the model fit compared to Model 2 (which includes only main effects). Model 3 has a much lower AIC (**221.57**) and BIC (**237.54**) compared to Model 2’s AIC (**283.05**) and BIC (**295.03**). The residual deviance decreases by **63.48** compared to Model 2, and the difference is statistically significant ($p < 0.01$). This reduction in deviance indicates that the interaction term captures additional variability in product purchase behavior that is not explained by the main effects alone. These results highlight that the interaction between `age` and `estimated_salary` is a meaningful predictor, further improving the model's explanatory power. 
 
 ```{r}
 model_3 <- glm(purchased ~ 
